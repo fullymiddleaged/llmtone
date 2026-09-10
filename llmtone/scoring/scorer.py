@@ -21,10 +21,14 @@ from .dimensions import DIMENSIONS, Dimension
 
 __all__ = [
     "DimensionResult",
+    "Variation",
+    "contradictions",
     "score_dimension",
     "score_all",
     "MIN_WORDS_FOR_CONSISTENCY",
     "SINGLE_SAMPLE_CONSISTENCY",
+    "CONTEXT_SPREAD_POINTS",
+    "CONTEXT_SCATTER_POINTS",
 ]
 
 #: Samples shorter than this are too noisy to say anything about consistency.
@@ -42,6 +46,19 @@ CONSISTENCY_SPREAD_SCALE = 50.0
 #: Consistency never falls below this; conflicting evidence lowers confidence,
 #: it does not erase the observation.
 CONSISTENCY_FLOOR = 0.30
+
+#: A dimension whose per-sample values span at least this many points is wide
+#: enough to be worth saying out loud. 30 points is about the distance between
+#: a work email and a message to a friend -- a single value in the middle
+#: describes neither of them.
+CONTEXT_SPREAD_POINTS = 30
+
+#: ...but a range is set by its two most extreme samples, so a wide one can be
+#: a single odd note. A dimension must also scatter this much (standard
+#: deviation, in points) before it is called context-dependent. 15 points puts
+#: consistency below SINGLE_SAMPLE_CONSISTENCY: the samples together are saying
+#: less about one value than any one of them said alone.
+CONTEXT_SCATTER_POINTS = 15.0
 
 
 @dataclass(frozen=True)
@@ -135,3 +152,71 @@ def score_all(
         d.name: score_dimension(d, corpus_features, total_words, sample_features)
         for d in DIMENSIONS
     }
+
+
+@dataclass(frozen=True)
+class Variation:
+    """One dimension the samples disagree about, and by how much."""
+
+    name: str
+    low: int
+    high: int
+    #: Standard deviation of the per-sample values. Says whether the range
+    #: below is a real split or one unusual sample stretching it.
+    scatter: float
+
+    @property
+    def spread(self) -> int:
+        return self.high - self.low
+
+    def to_dict(self) -> dict:
+        return {
+            "dimension": self.name,
+            "low": self.low,
+            "high": self.high,
+            "scatter": self.scatter,
+        }
+
+
+def contradictions(
+    results: dict[str, DimensionResult],
+    threshold: int = CONTEXT_SPREAD_POINTS,
+    scatter_threshold: float = CONTEXT_SCATTER_POINTS,
+) -> list[Variation]:
+    """Dimensions whose per-sample values both spread wide and scatter.
+
+    A wide range does not mean the value is wrong. It means the person writes
+    differently in different places, and one number is reporting the average of
+    two habits rather than either of them -- which is register variation, the
+    thing stylometry keeps rediscovering, not measurement error. Confidence has
+    already been lowered for it through consistency; this names what happened.
+
+    Both tests have to pass. Range alone is set by the two most extreme samples,
+    so on a handful of short notes almost every dimension looks contradictory;
+    requiring scatter as well means a range stretched by one mild outlier is not
+    reported as a split. It does not rule out a lone *extreme* sample, and
+    should not: one formal email among five casual notes is the signal, not
+    noise. Samples too short to be usable for consistency never reach
+    ``sample_values``, so a six-word reply counts for nothing either.
+
+    Ordered widest range first -- the order the ranges are shown in -- then in
+    :data:`DIMENSIONS` order, so the output is stable.
+    """
+    order = {d.name: index for index, d in enumerate(DIMENSIONS)}
+    found = [
+        Variation(
+            name=name,
+            low=min(result.sample_values),
+            high=max(result.sample_values),
+            scatter=round(_stdev(result.sample_values), 1),
+        )
+        for name, result in results.items()
+        if len(result.sample_values) >= 2
+    ]
+    return sorted(
+        (
+            v for v in found
+            if v.spread >= threshold and v.scatter >= scatter_threshold
+        ),
+        key=lambda v: (-v.spread, order.get(v.name, len(order))),
+    )

@@ -124,7 +124,31 @@ consistency = max(0.30, 1 - stdev(per-sample values) / 50)
   consistent *with*, and pretending to perfect agreement would be a lie.
 - The 0.30 floor means conflicting evidence lowers confidence without erasing
   the observation. Contradictory samples usually mean you write differently in
-  different contexts — which is a Phase 2 feature, not an error.
+  different contexts — which is a feature, not an error.
+
+### Naming the contradiction
+
+A lowered confidence says *something* disagreed. It does not say what. So the
+same per-sample values that feed consistency are checked again, and a dimension
+is reported as context-dependent when both of these hold:
+
+| Test | Threshold | Why |
+|---|---|---|
+| range (`max - min`) | ≥ 30 points | about the distance between a work email and a message to a friend |
+| scatter (stdev) | ≥ 15 points | a range is set by two extremes; scatter says the split is real |
+
+Both, because range alone flags almost everything once you have a handful of
+short samples — on a test corpus of seven it flagged seven of the eight
+dimensions, which tells a reader nothing. The scatter test does *not* rule out a
+single extreme sample, and shouldn’t: one formal email among five casual notes
+is exactly the signal.
+
+`llmtone profile` names the three widest and counts the rest; the full list is
+in `notes.varies_by_context`, with the range so a consumer can see how far apart
+the two habits are. See [schema.md](schema.md).
+
+Per-context profiles — splitting `contexts` by setting rather than averaging —
+are the other half of this, and still to come.
 
 ### The threshold that matters
 
@@ -249,3 +273,43 @@ retuning is possible without rewriting the suite. If a change survives
 
 The profile format is versioned and independent of all of this, so better
 scoring later does not mean a new format.
+
+
+---
+
+## Where this comes from
+
+llmtone is not a new idea, and the parts of it that are well founded are well
+founded because someone else did the work.
+
+**The design.** Douglas Biber’s multi-dimensional analysis is the direct
+ancestor: co-occurring lexico-grammatical features reduced to a handful of
+interpretable dimensions. His Dimension 1, *involved vs. informational
+production*, loads contractions, second-person pronouns and private verbs on one
+pole and nouns, long words and high type-token ratio on the other — the same
+sign pattern as `conversationality` and `formality` here. The honest difference:
+his loadings were derived by factor analysis over a corpus. Ours are hand-set,
+and are a hypothesis about the same structure rather than a measurement of it.
+
+**Contradiction detection.** Grieve et al., [*Register variation explains
+stylometric authorship
+analysis*](https://doi.org/10.1515/cllt-2022-0040) (CLLT 2023), argues that
+stylometry works because authors write in subtly different registers rather than
+different dialects. Within-author variation is therefore the expected case, not
+a defect in the measurement — which is the whole justification for reporting a
+spread instead of hiding it inside a lower confidence. The same literature finds
+cross-register attribution collapsing towards chance, which is the argument that
+per-context profiles are necessary rather than a nicety.
+
+**Vocabulary diversity.** `vocabulary_diversity` is MTLD, from McCarthy &
+Jarvis, [*MTLD, vocd-D, and HD-D*](https://doi.org/10.3758/BRM.42.2.381)
+(Behavior Research Methods, 2010), which found it the only diversity index not
+varying with text length. Later work on minimum lengths puts its usable floor
+near 100 tokens, and `MIN_WORDS_FOR_CONSISTENCY` is 40 — so on a short sample
+that feature is noisier than the rest, and it carries 0.15 of `technicality`.
+Known, unfixed.
+
+**Sample size.** Eder’s *Does size matter?* puts reliable authorship
+*attribution* at 2,500–5,000 words. The `target_words` here are 300–900, so
+`coverage: 1.0` should be read as “enough to describe how this person writes”,
+never as “enough to identify them”. Different task, much lower bar.

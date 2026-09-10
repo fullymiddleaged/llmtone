@@ -11,10 +11,19 @@ from __future__ import annotations
 import pytest
 
 from llmtone.analysis import analyse
-from llmtone.scoring import DIMENSIONS, DIMENSIONS_BY_NAME, linear_map, score_all
+from llmtone.scoring import (
+    DIMENSIONS,
+    DIMENSIONS_BY_NAME,
+    DimensionResult,
+    linear_map,
+    score_all,
+)
 from llmtone.scoring.scorer import (
     CONSISTENCY_FLOOR,
+    CONTEXT_SCATTER_POINTS,
+    CONTEXT_SPREAD_POINTS,
     SINGLE_SAMPLE_CONSISTENCY,
+    contradictions,
     score_dimension,
 )
 
@@ -174,3 +183,88 @@ class TestExplainability:
         assert set(explained["confidence_factors"]) == {
             "ceiling", "coverage", "consistency"
         }
+
+
+def _result(values: list[int]) -> DimensionResult:
+    """A DimensionResult carrying nothing but the per-sample values.
+
+    contradictions() reads only sample_values, so the rest is filler -- and
+    building one directly is the only way to test the thresholds on exact
+    numbers rather than on whatever the fixtures happen to score.
+    """
+    return DimensionResult(
+        name="formality", value=50, confidence=0.5, coverage=1.0,
+        consistency=0.5, ceiling=0.9, contributions={}, sample_values=values,
+    )
+
+
+#: Samples are joined into a corpus the way build_profile joins them.
+BLANK_LINE = "\n\n"
+
+
+class TestContradictions:
+    """Dimensions the samples disagree about, named rather than averaged away."""
+
+    @staticmethod
+    def _score(texts: list[str]) -> dict:
+        analyses = [analyse(t) for t in texts]
+        corpus = analyse(BLANK_LINE.join(texts))
+        return score_all(
+            corpus.features,
+            corpus.word_count,
+            [(a.features, a.word_count) for a in analyses],
+        )
+
+    def test_contrasting_samples_report_formality_and_its_range(self, fixtures):
+        results = self._score(
+            [fixtures["formal_professional"], fixtures["casual_direct"]]
+        )
+        found = {v.name: v for v in contradictions(results)}
+        assert "formality" in found, "a formal and a casual sample must disagree"
+        formality = found["formality"]
+        assert formality.low == min(results["formality"].sample_values)
+        assert formality.high == max(results["formality"].sample_values)
+        assert formality.spread == formality.high - formality.low
+        assert formality.spread >= CONTEXT_SPREAD_POINTS
+
+    def test_one_sample_cannot_contradict_itself(self, fixtures):
+        assert contradictions(self._score([fixtures["formal_professional"]])) == []
+
+    def test_a_sample_repeated_agrees_with_itself(self, fixtures):
+        text = fixtures["warm_conversational"]
+        assert contradictions(self._score([text, text])) == []
+
+    def test_widest_spread_is_reported_first(self, fixtures):
+        found = contradictions(
+            self._score([fixtures["formal_professional"], fixtures["casual_direct"]])
+        )
+        assert len(found) >= 2, "these fixtures should disagree about more than one thing"
+        spreads = [v.spread for v in found]
+        assert spreads == sorted(spreads, reverse=True)
+
+    def test_both_thresholds_decide_inclusion(self, fixtures):
+        results = self._score(
+            [fixtures["formal_professional"], fixtures["casual_direct"]]
+        )
+        every = contradictions(results, threshold=0, scatter_threshold=0)
+        assert len(every) == len(DIMENSIONS)
+        assert contradictions(results, threshold=101) == []
+        assert contradictions(results, scatter_threshold=101) == []
+
+    def test_a_range_stretched_by_a_mild_outlier_is_not_a_split(self):
+        """Five samples that agree and one that drifts is not two voices."""
+        results = {"formality": _result([50, 50, 50, 50, 50, 82])}
+        assert max(results["formality"].sample_values) - 50 >= CONTEXT_SPREAD_POINTS
+        assert contradictions(results) == []
+
+    def test_two_clusters_are_a_split(self):
+        results = {"formality": _result([20, 22, 78, 80])}
+        found = contradictions(results)
+        assert [v.name for v in found] == ["formality"]
+        assert (found[0].low, found[0].high) == (20, 80)
+        assert found[0].scatter == pytest.approx(29.0, abs=0.1)
+
+    def test_a_short_reply_cannot_manufacture_a_contradiction(self, fixtures):
+        """Samples below the consistency floor never reach sample_values."""
+        results = self._score([fixtures["formal_professional"], "Yep, fine by me."])
+        assert contradictions(results) == []

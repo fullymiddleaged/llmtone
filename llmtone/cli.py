@@ -59,6 +59,10 @@ _NOT_YET_MESSAGE = (
 #: Confidence moves smaller than this are rounding, not progress.
 CONFIDENCE_DELTA_FLOOR = 0.01
 
+#: Dimensions listed by name when the samples disagree. The rest are counted,
+#: because a list naming most of the eight says nothing.
+VARIATION_SHOWN = 3
+
 #: Word choices offered per calibration round. Quick to answer, so a couple
 #: alongside the written questions costs nothing.
 DEFAULT_PAIRS = 2
@@ -297,6 +301,39 @@ def cmd_analyse(args: argparse.Namespace, out: Out) -> int:
     return EXIT_OK
 
 
+def _print_variation(profile, out: Out) -> None:
+    """Name the dimensions the samples disagree about.
+
+    Confidence already went down for these -- consistency is a factor in it --
+    but a lowered number does not tell anyone *what* disagreed. A spread this
+    wide almost always means the samples came from different settings, so say
+    that rather than leaving it looking like a fault.
+    """
+    varies = profile.notes.get("varies_by_context") or []
+    if not varies:
+        return
+    out.say()
+    out.say(out.bold("  You write very differently in different places"))
+    for entry in varies[:VARIATION_SHOWN]:
+        name = str(entry.get("dimension", "")).capitalize()
+        out.say(
+            f"    {name:<18} {entry['low']}-{entry['high']} across samples"
+        )
+    rest = len(varies) - VARIATION_SHOWN
+    if rest > 0:
+        others = ", ".join(
+            str(e.get("dimension", "")) for e in varies[VARIATION_SHOWN:]
+        )
+        out.say(out.dim(f"    and {rest} more: {others}"))
+    out.say(
+        out.dim(
+            "  That is context, not error -- but the single value above is an "
+            "average of both,"
+        )
+    )
+    out.say(out.dim("  so treat it loosely until per-context profiles land."))
+
+
 def _print_profile(profile, out: Out) -> None:
     out.say(out.bold("Your Voice Profile"))
     out.say()
@@ -318,6 +355,7 @@ def _print_profile(profile, out: Out) -> None:
     if uncertain:
         out.say()
         out.say(out.dim("  ? low confidence   ?? not yet established"))
+    _print_variation(profile, out)
     out.say()
     out.say(render_summary(profile))
 

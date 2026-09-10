@@ -109,6 +109,22 @@ Six samples and 473 words is not much, and the profile says so: most dimensions
 are marked low-confidence, and humour is flagged as not established at all. Feed
 it more writing and the confidences climb.
 
+Feed it writing from two different worlds and it says that instead:
+
+```
+  You write very differently in different places
+    Formality          13-85 across samples
+    Hedging            18-78 across samples
+    Conversationality  8-65 across samples
+    and 2 more: technicality, conciseness
+  That is context, not error -- but the single value above is an average of both,
+  so treat it loosely until per-context profiles land.
+```
+
+Your work email and your messages to friends are not the same voice, and one
+number in the middle describes neither. llmtone reports the range rather than
+quietly averaging it away.
+
 Then hand your voice to any model:
 
 ```bash
@@ -301,8 +317,8 @@ is documented in [docs/schema.md](docs/schema.md).
 **Phase 1 — done.** Text analyser, profile schema, deterministic scoring, CLI,
 onboarding, writing-sample analysis, prompt renderer.
 
-**Phase 2 — in progress.** Adaptive question selection and the A/B word-choice
-library: done (`llmtone calibrate`). Still to come: contradiction detection and
+**Phase 2 — in progress.** Adaptive question selection, the A/B word-choice
+library (`llmtone calibrate`) and contradiction detection: done. Still to come:
 per-context profiles.
 
 **Phase 3.** `llmtone check` (a personal-style consistency checker — explicitly

@@ -14,7 +14,7 @@ from dataclasses import dataclass, field
 from ..analysis import Analysis, analyse
 from ..analysis.punctuation import MARKS
 from ..analysis.vocabulary import LIST_LIMIT
-from ..scoring import DIMENSIONS, DimensionResult, score_all
+from ..scoring import DIMENSIONS, DimensionResult, contradictions, score_all
 
 __all__ = [
     "VoiceProfile",
@@ -264,6 +264,10 @@ def build_profile(
                 [w for w in avoid if w not in chosen_against]
             ),
             "avoid_confirmed_by_choice": [w for w in avoid if w in chosen_against],
+            # Dimensions the samples disagree about by more than
+            # CONTEXT_SPREAD_POINTS. Empty means checked and none found, which
+            # is a different claim from a missing key.
+            "varies_by_context": [v.to_dict() for v in contradictions(results)],
             "describes": "writing behaviour only, not personality",
         },
     )

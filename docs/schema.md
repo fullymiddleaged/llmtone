@@ -125,8 +125,25 @@ Caveats about how the numbers were produced: which metrics are approximations,
 whether `avoid` came from absence, and a plain statement that the profile
 describes writing behaviour rather than personality.
 
-Nothing here is machine-critical, and everything here is the difference between
-a number and an honest number.
+`notes.varies_by_context` is the one entry a consumer may want to act on. Each
+item is `{dimension, low, high, scatter}` and names a dimension whose per-sample
+values both span 30 points or more and scatter (standard deviation) by 15 or
+more:
+
+```json
+"varies_by_context": [
+  { "dimension": "formality", "low": 18, "high": 85, "scatter": 33.5 }
+]
+```
+
+The `style` value for that dimension is still the corpus value, and it is not
+wrong — it is an average of habits that differ by setting. A consumer that knows
+which setting it is writing for should weight those dimensions loosely, or wait
+for `contexts` to be populated. An empty array means the check ran and found
+nothing, which is a different claim from the key being absent.
+
+Nothing else here is machine-critical, and everything here is the difference
+between a number and an honest number.
 
 ## Versioning
 

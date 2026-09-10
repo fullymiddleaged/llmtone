@@ -112,6 +112,24 @@
           "description": "Entries of vocabulary.avoid the person chose against when shown the alternative. Evidence of preference rather than of absence, so a consumer may enforce these strictly.",
           "items": { "type": "string" }
         },
+        "varies_by_context": {
+          "type": "array",
+          "description": "Dimensions whose per-sample values both span 30 points or more and scatter by 15 points or more. The single value in style is an average of habits that differ by setting, not a wrong number; a consumer that knows the context it is writing for should weight these loosely.",
+          "items": {
+            "type": "object",
+            "required": ["dimension", "low", "high"],
+            "properties": {
+              "dimension": { "type": "string" },
+              "low": { "type": "integer", "minimum": 0, "maximum": 100 },
+              "high": { "type": "integer", "minimum": 0, "maximum": 100 },
+              "scatter": {
+                "type": "number",
+                "minimum": 0,
+                "description": "Standard deviation of the per-sample values, in points. Says whether the range is a real split or one sample stretching it."
+              }
+            }
+          }
+        },
         "describes": { "type": "string" }
       }
     }

@@ -239,3 +239,37 @@ class TestStorage:
         storage.profile_path.unlink()
         storage.save_profile(make(storage.sample_texts()))
         assert storage.load_profile().to_json() == first
+
+
+class TestVariesByContext:
+    """Contradiction detection, as it reaches the profile."""
+
+    def test_contrasting_samples_are_recorded_with_their_range(self, fixtures):
+        profile = make(
+            [fixtures["formal_professional"], fixtures["casual_direct"]]
+        )
+        varies = profile.notes["varies_by_context"]
+        assert varies, "a formal and a casual sample must disagree somewhere"
+        entry = varies[0]
+        assert set(entry) == {"dimension", "low", "high", "scatter"}
+        assert entry["dimension"] in profile.style
+        assert entry["high"] - entry["low"] >= 30
+
+    def test_one_sample_records_an_empty_list_not_a_missing_key(self, fixtures):
+        """Empty means checked and none found, which is not the same as absent."""
+        profile = make([fixtures["formal_professional"]])
+        assert profile.notes["varies_by_context"] == []
+
+    def test_a_profile_with_variation_still_validates(self, fixtures):
+        profile = make(
+            [fixtures["formal_professional"], fixtures["casual_direct"]]
+        )
+        assert validate(profile.to_dict()) == []
+
+    def test_widest_disagreement_is_listed_first(self, fixtures):
+        """A consumer reading only the first entry should get the worst one."""
+        profile = make(
+            [fixtures["formal_professional"], fixtures["casual_direct"]]
+        )
+        spreads = [e["high"] - e["low"] for e in profile.notes["varies_by_context"]]
+        assert spreads == sorted(spreads, reverse=True)

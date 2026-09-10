@@ -23,6 +23,13 @@ yet, so everything below is still under Unreleased.
 - `notes.avoid_confirmed_by_choice` in the profile: the `avoid` entries you
   chose against, which a consumer may enforce strictly. The rest are still
   guesses, and `notes.avoid_inferred_from_absence` still says so.
+- Contradiction detection in `llmtone profile` — when your samples disagree
+  about a dimension by more than 30 points, it names the dimension and shows
+  the range ("Formality 13-85 across samples") instead of reporting only the
+  average. That is context, not error; per-context profiles are still to come.
+- `notes.varies_by_context` in the profile: the same list, as
+  `{dimension, low, high, scatter}`, for tools that want to weight those
+  dimensions loosely. An empty array means the check found nothing.
 - `llmtone analyse FILE` — metrics for one file. `--json` for everything,
   `--save` to add the file to your profile.
 - `llmtone profile` — your profile as bars and prose, with a confidence per

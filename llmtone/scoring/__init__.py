@@ -8,15 +8,25 @@ from .dimensions import (
     Dimension,
     linear_map,
 )
-from .scorer import DimensionResult, score_all, score_dimension
+from .scorer import (
+    CONTEXT_SPREAD_POINTS,
+    DimensionResult,
+    Variation,
+    contradictions,
+    score_all,
+    score_dimension,
+)
 
 __all__ = [
+    "CONTEXT_SPREAD_POINTS",
     "DIMENSIONS",
     "DIMENSION_NAMES",
     "DIMENSIONS_BY_NAME",
     "FEATURE_RANGES",
     "Dimension",
     "DimensionResult",
+    "Variation",
+    "contradictions",
     "linear_map",
     "score_all",
     "score_dimension",

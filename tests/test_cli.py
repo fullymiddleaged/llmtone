@@ -193,6 +193,57 @@ class TestProfileAndPrompt:
         assert "Run `llmtone init` first" in capsys.readouterr().out
 
 
+class TestVariationReporting:
+    """`llmtone profile` names what the samples disagreed about."""
+
+    def test_contrasting_samples_are_called_out_by_name_and_range(
+        self, home, answers_file, capsys
+    ):
+        init(home, answers_file, sample="casual_direct")
+        assert run(
+            ["analyse", str(FIXTURES / "formal_professional.txt"), "--save"], home
+        ) == EXIT_OK
+        capsys.readouterr()
+
+        assert run(["profile"], home) == EXIT_OK
+        output = capsys.readouterr().out
+        assert "You write very differently in different places" in output
+        assert "Formality" in output
+        assert "across samples" in output
+        assert "context, not error" in output
+
+        varies = json.loads(
+            (home / "profile.json").read_text(encoding="utf-8")
+        )["notes"]["varies_by_context"]
+        entry = next(e for e in varies if e["dimension"] == "formality")
+        assert f"{entry['low']}-{entry['high']} across samples" in output
+
+    def test_only_the_worst_few_are_named(self, capsys):
+        """A list naming most of the eight dimensions tells the reader nothing."""
+        from types import SimpleNamespace
+
+        from llmtone.cli import VARIATION_SHOWN, Out, _print_variation
+
+        entries = [
+            {"dimension": name, "low": 10, "high": 90, "scatter": 40.0}
+            for name in ("formality", "warmth", "hedging", "humour", "directness")
+        ]
+        _print_variation(SimpleNamespace(notes={"varies_by_context": entries}), Out())
+        output = capsys.readouterr().out
+
+        named = [e["dimension"] for e in entries[:VARIATION_SHOWN]]
+        assert all(name.capitalize() in output for name in named)
+        assert "and 2 more: humour, directness" in output
+        assert "Humour  " not in output  # counted, not given a row of its own
+
+    def test_consistent_writing_says_nothing(self, home, answers_file, capsys):
+        """Silence is the right output when the samples agree."""
+        init(home, answers_file, sample="casual_direct")
+        capsys.readouterr()
+        assert run(["profile"], home) == EXIT_OK
+        assert "very differently" not in capsys.readouterr().out
+
+
 class TestUnbuiltCommands:
     def test_check_exits_distinctly_and_explains(self, home, capsys):
         assert run(["check", "some.txt"], home) == EXIT_NOT_YET
