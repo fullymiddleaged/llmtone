@@ -85,7 +85,7 @@
     },
     "contexts": {
       "type": "object",
-      "description": "Optional per-context overrides (work, casual, public, technical, custom). Each value is a partial profile using the same shape. Empty until evidence shows a person writes differently in different settings.",
+      "description": "Optional per-context overrides (work, casual, public, technical, custom). Each value is a partial profile using the same shape, carrying only the keys it overrides -- llmtone emits style and metadata. Anything absent falls back to the top level. Empty until samples are labelled with a context and one of them has enough writing behind it.",
       "additionalProperties": { "type": "object" }
     },
     "metadata": {

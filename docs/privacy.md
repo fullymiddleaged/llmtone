@@ -43,7 +43,10 @@ private git repo — it is yours, and there is no format between you and it.
   to write it again. Delete a sample file and rerun `llmtone init --force`, or
   just delete the whole directory, and it is gone.
 - **`evidence.jsonl`** holds metrics and references, never raw text. The
-  filename in `text_ref` points into `samples/`.
+  filename in `text_ref` points into `samples/`. Any context label you pass to
+  `--context` is stored here too, and copied into `profile.json` as a key under
+  `contexts` — so pick labels you would not mind a consumer of the profile
+  seeing, or leave the sample unlabelled.
 - **`profile.json`** holds scores, bands and short word lists. Ordinary
   subject-matter words do not reach it — the vocabulary lists are style words
   (hedges, colloquialisms, fillers) plus a curated avoid list. Two things

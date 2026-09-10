@@ -11,10 +11,12 @@ import pytest
 
 from llmtone.evidence import Evidence, new_id, utc_now
 from llmtone.profile import (
+    MIN_CONTEXT_WORDS,
     SCHEMA_VERSION,
     Storage,
     VoiceProfile,
     build_profile,
+    normalise_context,
     validate,
     validate_or_raise,
 )
@@ -273,3 +275,99 @@ class TestVariesByContext:
         )
         spreads = [e["high"] - e["low"] for e in profile.notes["varies_by_context"]]
         assert spreads == sorted(spreads, reverse=True)
+
+
+class TestContexts:
+    """Per-context profiles: same scoring, applied to a labelled subset."""
+
+    def test_labelled_samples_get_their_own_style(self, fixtures):
+        profile = build_profile(
+            [fixtures["formal_professional"], fixtures["casual_direct"]],
+            labels=["work", "casual"],
+            **FIXED,
+        )
+        assert sorted(profile.contexts) == ["casual", "work"]
+        work = profile.contexts["work"]["style"]
+        casual = profile.contexts["casual"]["style"]
+        assert work["formality"]["value"] > casual["formality"]["value"]
+
+    def test_unlabelled_samples_join_no_context(self, fixtures):
+        """Unlabelled means unknown, not a context called 'other'."""
+        profile = build_profile(
+            [fixtures["formal_professional"], fixtures["casual_direct"]],
+            labels=["work", None],
+            **FIXED,
+        )
+        assert list(profile.contexts) == ["work"]
+
+    def test_labels_are_normalised_so_one_context_stays_one(self, fixtures):
+        profile = build_profile(
+            [fixtures["formal_professional"], fixtures["verbose_technical"]],
+            labels=["Work", "  work  "],
+            **FIXED,
+        )
+        assert list(profile.contexts) == ["work"]
+        assert profile.contexts["work"]["metadata"]["sample_count"] == 2
+
+    def test_normalise_context_folds_case_and_spaces(self):
+        assert normalise_context("  Work  Email ") == "work-email"
+
+    def test_a_thin_context_is_not_reported_at_all(self, fixtures):
+        """Below the floor every dimension would fall under 0.45 anyway."""
+        short = "It is fine by me, and I will get to it this afternoon. " * 3
+        assert len(short.split()) < MIN_CONTEXT_WORDS
+        profile = build_profile(
+            [fixtures["formal_professional"], short],
+            labels=["work", "notes"],
+            **FIXED,
+        )
+        assert "notes" not in profile.contexts
+
+    def test_no_labels_changes_nothing(self, fixtures):
+        """A profile built without labels must match one built before contexts."""
+        texts = list(fixtures.values())
+        assert make(texts).to_json() == build_profile(texts, **FIXED).to_json()
+        assert make(texts).contexts == {}
+
+    def test_splitting_by_context_raises_confidence(self, fixtures):
+        """The point of the feature.
+
+        Pooled, a formal and a casual sample contradict each other and drag
+        formality's confidence down. Split by context, each side agrees with
+        itself, and the context can say more than the average ever could.
+        """
+        profile = build_profile(
+            [fixtures["formal_professional"], fixtures["casual_direct"]],
+            labels=["work", "casual"],
+            **FIXED,
+        )
+        pooled = profile.style["formality"].confidence
+        at_work = profile.contexts["work"]["style"]["formality"]["confidence"]
+        assert at_work > pooled
+        assert at_work <= 0.90  # still capped by the dimension's ceiling
+
+    def test_a_profile_with_contexts_still_validates(self, fixtures):
+        profile = build_profile(
+            [fixtures["formal_professional"], fixtures["casual_direct"]],
+            labels=["work", "casual"],
+            **FIXED,
+        )
+        assert validate(profile.to_dict()) == []
+
+    def test_for_context_overrides_only_the_dimensions_it_has(self, fixtures):
+        profile = build_profile(
+            [fixtures["formal_professional"], fixtures["casual_direct"]],
+            labels=["work", "casual"],
+            **FIXED,
+        )
+        at_work = profile.for_context("work")
+        assert at_work.style["formality"].value == (
+            profile.contexts["work"]["style"]["formality"]["value"]
+        )
+        assert at_work.vocabulary == profile.vocabulary
+        assert at_work.punctuation == profile.punctuation
+        assert profile.style["formality"].value != at_work.style["formality"].value
+
+    def test_for_context_with_an_unknown_name_returns_the_profile(self, fixtures):
+        profile = make([fixtures["casual_direct"]])
+        assert profile.for_context("nowhere") is profile

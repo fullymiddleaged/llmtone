@@ -117,13 +117,34 @@ Feed it writing from two different worlds and it says that instead:
     Hedging            18-78 across samples
     Conversationality  8-65 across samples
     and 2 more: technicality, conciseness
-  That is context, not error -- but the single value above is an average of both,
-  so treat it loosely until per-context profiles land.
+  That is context, not error -- but the single value above is an average of both.
+  Split them with: llmtone analyse FILE --save --context work
 ```
 
 Your work email and your messages to friends are not the same voice, and one
 number in the middle describes neither. llmtone reports the range rather than
 quietly averaging it away.
+
+Tell it which is which and it stops averaging them at all:
+
+```
+$ llmtone analyse work-email.md --save --context work
+$ llmtone profile
+
+  How that shifts by context
+    friends  (1 sample, 352 words)
+      Conversationality   71  +30 vs overall
+      Technicality        28  -25 vs overall
+    work  (2 samples, 862 words)
+      Formality           82  +32 vs overall
+      Conversationality   10  -31 vs overall
+      and 4 more
+  Write for one of these with: llmtone prompt --context NAME
+```
+
+Contexts usually come out *more* confident than the overall profile: samples
+that contradict each other pooled agree once they are split by where you wrote
+them. Labels are yours to choose — llmtone will not guess them.
 
 Then hand your voice to any model:
 
@@ -317,9 +338,8 @@ is documented in [docs/schema.md](docs/schema.md).
 **Phase 1 — done.** Text analyser, profile schema, deterministic scoring, CLI,
 onboarding, writing-sample analysis, prompt renderer.
 
-**Phase 2 — in progress.** Adaptive question selection, the A/B word-choice
-library (`llmtone calibrate`) and contradiction detection: done. Still to come:
-per-context profiles.
+**Phase 2 — done.** Adaptive question selection, the A/B word-choice library
+(`llmtone calibrate`), contradiction detection and per-context profiles.
 
 **Phase 3.** `llmtone check` (a personal-style consistency checker — explicitly
 *not* an AI detector), learning from your edits, MCP server, integration docs.

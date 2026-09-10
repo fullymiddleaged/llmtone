@@ -228,7 +228,8 @@ class TestVariationReporting:
             {"dimension": name, "low": 10, "high": 90, "scatter": 40.0}
             for name in ("formality", "warmth", "hedging", "humour", "directness")
         ]
-        _print_variation(SimpleNamespace(notes={"varies_by_context": entries}), Out())
+        profile = SimpleNamespace(notes={"varies_by_context": entries}, contexts={})
+        _print_variation(profile, Out())
         output = capsys.readouterr().out
 
         named = [e["dimension"] for e in entries[:VARIATION_SHOWN]]
@@ -242,6 +243,85 @@ class TestVariationReporting:
         capsys.readouterr()
         assert run(["profile"], home) == EXIT_OK
         assert "very differently" not in capsys.readouterr().out
+
+
+class TestContexts:
+    """Labelling samples, and what the CLI does with the labels."""
+
+    def save(self, home: Path, style: str, context: str | None = None) -> int:
+        args = ["analyse", str(FIXTURES / f"{style}.txt"), "--save"]
+        if context:
+            args += ["--context", context]
+        return run(args, home)
+
+    def test_the_label_is_stored_on_the_evidence_not_the_profile(
+        self, home, answers_file
+    ):
+        init(home, answers_file)
+        assert self.save(home, "formal_professional", "Work") == EXIT_OK
+        record = Storage.open(home).evidence()[-1]
+        assert record.kind == "writing_sample"
+        assert record.meta["context"] == "work"
+
+    def test_a_labelled_context_appears_in_the_profile(self, home, answers_file):
+        init(home, answers_file)
+        self.save(home, "formal_professional", "work")
+        self.save(home, "verbose_technical", "work")
+        data = json.loads((home / "profile.json").read_text(encoding="utf-8"))
+        assert "work" in data["contexts"]
+        assert data["contexts"]["work"]["metadata"]["sample_count"] == 2
+        assert data["contexts"]["work"]["style"]["formality"]["value"] > 50
+
+    def test_profile_shows_the_shift_not_another_set_of_bars(
+        self, home, answers_file, capsys
+    ):
+        init(home, answers_file)
+        self.save(home, "formal_professional", "work")
+        self.save(home, "verbose_technical", "work")
+        capsys.readouterr()
+
+        assert run(["profile"], home) == EXIT_OK
+        output = capsys.readouterr().out
+        assert "How that shifts by context" in output
+        assert "work" in output
+        assert "vs overall" in output
+
+    def test_unlabelled_writing_creates_no_context(self, home, answers_file):
+        init(home, answers_file)
+        self.save(home, "formal_professional")
+        data = json.loads((home / "profile.json").read_text(encoding="utf-8"))
+        assert data["contexts"] == {}
+
+    def test_prompt_for_a_context_uses_that_context(
+        self, home, answers_file, capsys
+    ):
+        init(home, answers_file, sample="casual_direct")
+        self.save(home, "formal_professional", "work")
+        self.save(home, "verbose_technical", "work")
+        capsys.readouterr()
+
+        assert run(["prompt", "--context", "work"], home) == EXIT_OK
+        at_work = capsys.readouterr().out
+        assert run(["prompt"], home) == EXIT_OK
+        overall = capsys.readouterr().out
+
+        assert "How you write in: work" in at_work
+        assert at_work != overall
+        assert "Formal." in at_work
+
+    def test_an_unknown_context_says_what_is_known_and_how_to_add_one(
+        self, home, answers_file, capsys
+    ):
+        init(home, answers_file)
+        self.save(home, "formal_professional", "work")
+        self.save(home, "verbose_technical", "work")
+        capsys.readouterr()
+
+        assert run(["prompt", "--context", "holiday"], home) == EXIT_ERROR
+        output = capsys.readouterr().out
+        assert "No profile for context 'holiday'" in output
+        assert "Known contexts: work" in output
+        assert "--save --context holiday" in output
 
 
 class TestUnbuiltCommands:

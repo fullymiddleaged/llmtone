@@ -1,9 +1,9 @@
 """The llmtone command line.
 
     llmtone init          five questions, then a real writing sample
-    llmtone analyse FILE  metrics for one file
+    llmtone analyse FILE  metrics for one file (--save --context work)
     llmtone profile       your profile, as bars and prose
-    llmtone prompt        model-independent writing instructions
+    llmtone prompt        model-independent writing instructions (--context)
     llmtone export        the profile as JSON
     llmtone calibrate     more questions, chosen by what is least certain
     llmtone check FILE    (Phase 3)
@@ -40,7 +40,9 @@ from .calibration.questions import MIN_ANSWER_WORDS
 from .calibration.selection import DEFAULT_ROUND, dimension_priority
 from .evidence import utc_now
 from .profile import (
+    CONFIDENCE_THRESHOLD,
     Storage,
+    normalise_context,
     build_profile,
     render_instructions,
     render_summary,
@@ -58,6 +60,10 @@ _NOT_YET_MESSAGE = (
 
 #: Confidence moves smaller than this are rounding, not progress.
 CONFIDENCE_DELTA_FLOOR = 0.01
+
+#: A context has to sit this far from your overall value before it is worth a
+#: line. Closer than this and it is the same voice with a different subject.
+CONTEXT_DELTA_SHOWN = 10
 
 #: Dimensions listed by name when the samples disagree. The rest are counted,
 #: because a list naming most of the eight says nothing.
@@ -148,10 +154,11 @@ def confidence_marker(confidence: float) -> str:
 # --- commands ---------------------------------------------------------------
 def _rebuild(storage: Storage, out: Out) -> None:
     """Rebuild profile.json from the evidence log."""
-    texts = storage.sample_texts()
+    labelled = storage.labelled_sample_texts()
     existing = storage.load_profile()
     profile = build_profile(
-        texts,
+        [text for text, _ in labelled],
+        labels=[label for _, label in labelled],
         verdicts=verdicts_from_evidence(storage.evidence()),
         profile_id=existing.profile_id if existing else uuid.uuid4().hex[:16],
         created_at=(
@@ -295,7 +302,13 @@ def cmd_analyse(args: argparse.Namespace, out: Out) -> int:
 
     if args.save:
         storage = Storage.open(args.home)
-        record_sample(storage, text, source=str(path), seq=len(storage.evidence()))
+        record_sample(
+            storage,
+            text,
+            source=str(path),
+            seq=len(storage.evidence()),
+            context=args.context,
+        )
         out.say()
         _rebuild(storage, out)
     return EXIT_OK
@@ -328,10 +341,61 @@ def _print_variation(profile, out: Out) -> None:
     out.say(
         out.dim(
             "  That is context, not error -- but the single value above is an "
-            "average of both,"
+            "average of both."
         )
     )
-    out.say(out.dim("  so treat it loosely until per-context profiles land."))
+    if not profile.contexts:
+        out.say(
+            out.dim(
+                "  Split them with: llmtone analyse FILE --save --context work"
+            )
+        )
+
+
+def _print_contexts(profile, out: Out) -> None:
+    """Show each context as its distance from the overall profile.
+
+    Not another eight bars per context: the useful thing is what *shifts*. A
+    shift is only shown where the context is confident enough to claim it, so a
+    thin context says it is thin rather than reporting a swing built on two
+    paragraphs.
+    """
+    if not profile.contexts:
+        return
+    out.say()
+    out.say(out.bold("  How that shifts by context"))
+    for name in sorted(profile.contexts):
+        entry = profile.contexts[name]
+        meta = entry.get("metadata", {})
+        count = meta.get("sample_count", 0)
+        out.say(
+            f"    {name}  "
+            + out.dim(
+                f"({count} sample{'' if count == 1 else 's'}, "
+                f"{meta.get('word_count', 0):,} words)"
+            )
+        )
+        shifts = []
+        for dimension, score in (entry.get("style") or {}).items():
+            overall = profile.style.get(dimension)
+            if overall is None or score["confidence"] < CONFIDENCE_THRESHOLD:
+                continue
+            delta = score["value"] - overall.value
+            if abs(delta) >= CONTEXT_DELTA_SHOWN:
+                shifts.append((dimension, score["value"], delta))
+        shifts.sort(key=lambda item: (-abs(item[2]), item[0]))
+        if not shifts:
+            out.say(out.dim("      much like your overall voice, so far"))
+            continue
+        for dimension, value, delta in shifts[:VARIATION_SHOWN]:
+            out.say(
+                f"      {dimension.capitalize():<18} {value:>3}  "
+                + out.dim(f"{delta:+d} vs overall")
+            )
+        rest = len(shifts) - VARIATION_SHOWN
+        if rest > 0:
+            out.say(out.dim(f"      and {rest} more"))
+    out.say(out.dim("  Write for one of these with: llmtone prompt --context NAME"))
 
 
 def _print_profile(profile, out: Out) -> None:
@@ -356,6 +420,7 @@ def _print_profile(profile, out: Out) -> None:
         out.say()
         out.say(out.dim("  ? low confidence   ?? not yet established"))
     _print_variation(profile, out)
+    _print_contexts(profile, out)
     out.say()
     out.say(render_summary(profile))
 
@@ -383,6 +448,21 @@ def cmd_prompt(args: argparse.Namespace, out: Out) -> int:
     profile = _require_profile(args, out)
     if profile is None:
         return EXIT_ERROR
+    wanted = getattr(args, "context", None)
+    if wanted:
+        name = normalise_context(wanted)
+        if name not in profile.contexts:
+            known = ", ".join(sorted(profile.contexts)) or "none yet"
+            out.say(f"No profile for context {name!r}. Known contexts: {known}.")
+            out.say(
+                out.dim(
+                    "  Build one with: llmtone analyse FILE --save --context "
+                    f"{name}"
+                )
+            )
+            return EXIT_ERROR
+        profile = profile.for_context(name)
+        out.say(out.dim(f"# How you write in: {name}"))
     out.say(render_instructions(profile))
     return EXIT_OK
 
@@ -653,12 +733,23 @@ def build_parser() -> argparse.ArgumentParser:
     analyse_cmd.add_argument("file")
     analyse_cmd.add_argument("--json", action="store_true", help="Full metric dump as JSON.")
     analyse_cmd.add_argument("--save", action="store_true", help="Add this file to your profile.")
+    analyse_cmd.add_argument(
+        "--context",
+        metavar="LABEL",
+        help="Where this was written -- work, casual, whatever you call it. "
+             "Used with --save to build a per-context profile.",
+    )
     analyse_cmd.set_defaults(func=cmd_analyse)
 
     profile_cmd = subparsers.add_parser("profile", help="Show your profile.")
     profile_cmd.set_defaults(func=cmd_profile)
 
     prompt_cmd = subparsers.add_parser("prompt", help="Writing instructions for any model.")
+    prompt_cmd.add_argument(
+        "--context",
+        metavar="LABEL",
+        help="Instructions for how you write in one context.",
+    )
     prompt_cmd.set_defaults(func=cmd_prompt)
 
     export_cmd = subparsers.add_parser("export", help="Export profile.json.")

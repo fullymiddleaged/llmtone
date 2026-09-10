@@ -1,11 +1,13 @@
 """The voice profile: model, schema, storage and rendering."""
 
 from .model import (
+    MIN_CONTEXT_WORDS,
     PARAGRAPH_BANDS,
     SCHEMA_VERSION,
     DimensionScore,
     VoiceProfile,
     build_profile,
+    normalise_context,
 )
 from .render import (
     CONFIDENCE_THRESHOLD,
@@ -22,6 +24,8 @@ __all__ = [
     "build_profile",
     "SCHEMA_VERSION",
     "PARAGRAPH_BANDS",
+    "MIN_CONTEXT_WORDS",
+    "normalise_context",
     "Storage",
     "default_home",
     "SchemaError",

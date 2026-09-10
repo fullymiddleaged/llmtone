@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 
 from ..analysis import Analysis, analyse
 from ..analysis.punctuation import MARKS
@@ -18,6 +18,8 @@ from ..scoring import DIMENSIONS, DimensionResult, contradictions, score_all
 
 __all__ = [
     "VoiceProfile",
+    "MIN_CONTEXT_WORDS",
+    "normalise_context",
     "DimensionScore",
     "WordVerdict",
     "build_profile",
@@ -39,6 +41,24 @@ PARAGRAPH_BANDS = ((45.0, "short"), (90.0, "medium"))
 
 #: Headings or bullets per paragraph -> label.
 STRUCTURE_BANDS = ((0.08, "low"), (0.30, "medium"))
+
+#: How samples are joined into one corpus: a blank line, so the analyser sees
+#: paragraph boundaries rather than one run-on block.
+PARAGRAPH_SEPARATOR = "\n\n"
+
+#: A labelled context needs this much writing before it gets its own entry.
+#: Below it every dimension would score under the 0.45 threshold anyway, so the
+#: entry would be a heading with nothing under it.
+MIN_CONTEXT_WORDS = 200
+
+
+def normalise_context(label: str) -> str:
+    """A context label as it is stored: lowercase, no spaces.
+
+    Labels become JSON keys and are typed by hand at a prompt, so "Work" and
+    "work" have to be the same context or a profile quietly grows two of them.
+    """
+    return "-".join(label.strip().lower().split())
 
 
 def _band(value: float, bands: tuple[tuple[float, str], ...], top: str) -> str:
@@ -131,12 +151,95 @@ class VoiceProfile:
             notes=data.get("notes", {}),
         )
 
+    def for_context(self, name: str) -> "VoiceProfile":
+        """This profile as it applies in one context.
+
+        A context entry is a partial profile: the dimensions it overrides and
+        nothing else. Everything it does not mention -- punctuation, vocabulary,
+        structure -- is the same person, so it comes from the top level. An
+        unknown name returns the profile unchanged rather than raising, because
+        asking for a context nobody has evidence for is not an error.
+        """
+        entry = self.contexts.get(normalise_context(name))
+        if not entry:
+            return self
+        style = dict(self.style)
+        for dimension, score in (entry.get("style") or {}).items():
+            style[dimension] = DimensionScore(
+                value=int(score["value"]), confidence=float(score["confidence"])
+            )
+        return replace(self, style=style)
+
     def confident(self, threshold: float) -> list[str]:
         """Dimension names whose confidence is at or above ``threshold``."""
         return [
             name for name, score in self.style.items()
             if score.confidence >= threshold
         ]
+
+
+def _score_texts(
+    texts: list[str],
+) -> tuple[dict[str, DimensionResult], Analysis]:
+    """Analyse a group of texts as one corpus, and score it.
+
+    The corpus is the texts joined, so a 2000-word document naturally outweighs
+    a 20-word note without any weighting arithmetic; each text is also analysed
+    alone so the scorer can measure consistency across them. One function, used
+    for the whole corpus and for each context, so a context is never scored by
+    a slightly different rule.
+    """
+    analyses = [analyse(t) for t in texts]
+    corpus = analyse(PARAGRAPH_SEPARATOR.join(texts)) if texts else analyse("")
+    results = score_all(
+        corpus.features,
+        corpus.word_count,
+        [(a.features, a.word_count) for a in analyses],
+    )
+    return results, corpus
+
+
+def _style(results: dict[str, DimensionResult]) -> dict[str, DimensionScore]:
+    return {
+        d.name: DimensionScore(
+            value=results[d.name].value, confidence=results[d.name].confidence
+        )
+        for d in DIMENSIONS
+    }
+
+
+def _context_profiles(
+    labelled: list[tuple[str, str | None]],
+) -> dict[str, dict]:
+    """One partial profile per labelled context with enough writing behind it.
+
+    Only ``style`` and ``metadata``: a context is how someone shifts register,
+    not a different person, so their punctuation and vocabulary stay at the top
+    level. Contexts are scored by exactly the same code as the whole corpus --
+    including confidence -- so a thin context reports itself as thin rather than
+    being silently trusted.
+
+    Sorted by name so the file diffs cleanly.
+    """
+    grouped: dict[str, list[str]] = {}
+    for text, label in labelled:
+        if not label:  # unlabelled is unknown, not a context of its own
+            continue
+        grouped.setdefault(normalise_context(label), []).append(text)
+
+    contexts: dict[str, dict] = {}
+    for name in sorted(grouped):
+        results, corpus = _score_texts(grouped[name])
+        if corpus.word_count < MIN_CONTEXT_WORDS:
+            continue
+        contexts[name] = {
+            "style": {n: s.to_dict() for n, s in _style(results).items()},
+            "metadata": {
+                "sample_count": len(grouped[name]),
+                "word_count": corpus.word_count,
+            },
+        }
+    return contexts
 
 
 def build_profile(
@@ -147,6 +250,7 @@ def build_profile(
     updated_at: str,
     sample_count: int | None = None,
     verdicts: "Sequence[WordVerdict]" = (),
+    labels: "Sequence[str | None]" = (),
 ) -> VoiceProfile:
     """Build a profile from writing samples and any answered word choices.
 
@@ -159,24 +263,21 @@ def build_profile(
     the guesses the ``avoid`` list is otherwise made of. No dimension value or
     confidence moves -- a stated preference is not observed behaviour, and the
     scorer stays a function of the writing alone.
+
+    ``labels`` is a context name per text, positionally aligned with ``texts``
+    and padded with ``None``. A labelled context with enough writing behind it
+    gets its own entry in ``contexts``; everything else is unaffected, so a
+    profile with no labels at all is byte-identical to one built before
+    contexts existed.
     """
-    texts = [t for t in texts if t and t.strip()]
-    corpus_text = "\n\n".join(texts)
-    corpus: Analysis = analyse(corpus_text) if corpus_text else analyse("")
-    per_sample: list[Analysis] = [analyse(t) for t in texts]
-
-    results: dict[str, DimensionResult] = score_all(
-        corpus.features,
-        corpus.word_count,
-        [(a.features, a.word_count) for a in per_sample],
-    )
-
-    style = {
-        d.name: DimensionScore(
-            value=results[d.name].value, confidence=results[d.name].confidence
-        )
-        for d in DIMENSIONS
-    }
+    labelled = [
+        (text, labels[index] if index < len(labels) else None)
+        for index, text in enumerate(texts)
+        if text and text.strip()
+    ]
+    texts = [text for text, _ in labelled]
+    results, corpus = _score_texts(texts)
+    style = _style(results)
 
     punctuation = {
         mark: corpus.punctuation.bands[mark]
@@ -246,7 +347,7 @@ def build_profile(
             "avoided": [],
         },
         structure=structure,
-        contexts={},
+        contexts=_context_profiles(labelled),
         metadata={
             "sample_count": sample_count if sample_count is not None else len(texts),
             "word_count": corpus.word_count,

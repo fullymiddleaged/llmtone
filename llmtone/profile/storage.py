@@ -123,16 +123,25 @@ class Storage:
         return load_evidence(self.evidence_path)
 
     def sample_texts(self) -> list[str]:
-        """Every stored sample, in evidence order.
+        """Every stored sample, in evidence order."""
+        return [text for text, _ in self.labelled_sample_texts()]
+
+    def labelled_sample_texts(self) -> list[tuple[str, str | None]]:
+        """Every stored sample with its context label, in evidence order.
 
         Order matters: the corpus is the samples concatenated, and a stable
-        order is what makes the resulting profile reproducible.
+        order is what makes the resulting profile reproducible. The label comes
+        off the evidence record, so relabelling means adding evidence rather
+        than editing a profile.
         """
-        texts: list[str] = []
+        samples: list[tuple[str, str | None]] = []
         for record in self.evidence():
             if not record.text_ref:
                 continue
             path = self.home / record.text_ref
             if path.exists():
-                texts.append(path.read_text(encoding="utf-8"))
-        return texts
+                samples.append((
+                    path.read_text(encoding="utf-8"),
+                    record.meta.get("context"),
+                ))
+        return samples

@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from ..analysis import analyse
 from ..evidence import Evidence, new_id, utc_now
-from ..profile.model import WordVerdict
+from ..profile.model import WordVerdict, normalise_context
 from ..profile.storage import Storage
 from .pairs import SKIP, WordChoice
 from .questions import QUESTIONS_BY_ID, Question
@@ -171,14 +171,24 @@ def verdicts_from_evidence(records: list[Evidence]) -> list[WordVerdict]:
 
 
 def record_sample(
-    storage: Storage, text: str, source: str, seq: int = 0
+    storage: Storage,
+    text: str,
+    source: str,
+    seq: int = 0,
+    context: str | None = None,
 ) -> Evidence:
-    """Store a piece of the user's real writing as evidence."""
+    """Store a piece of the user's real writing as evidence.
+
+    ``context`` is where this was written -- work, casual, whatever the person
+    calls it. It rides on the evidence record rather than the profile, so the
+    profile stays a pure function of the log and a context can be added to old
+    writing by appending, never by editing.
+    """
     return _record(
         storage,
         text,
         kind="writing_sample",
         source=source,
         seq=seq,
-        meta={},
+        meta={"context": normalise_context(context)} if context else {},
     )

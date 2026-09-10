@@ -30,6 +30,14 @@ yet, so everything below is still under Unreleased.
 - `notes.varies_by_context` in the profile: the same list, as
   `{dimension, low, high, scatter}`, for tools that want to weight those
   dimensions loosely. An empty array means the check found nothing.
+- `--context LABEL` on `llmtone analyse --save` — say where a sample was
+  written and that context gets its own profile, shown in `llmtone profile` as
+  its shift from your overall voice. Contexts often read as *more* confident
+  than the overall profile, because samples that contradict each other pooled
+  agree once they are split.
+- `llmtone prompt --context work` — instructions for how you write in one
+  context, falling back to your overall voice for anything that context has no
+  evidence about.
 - `llmtone analyse FILE` — metrics for one file. `--json` for everything,
   `--save` to add the file to your profile.
 - `llmtone profile` — your profile as bars and prose, with a confidence per

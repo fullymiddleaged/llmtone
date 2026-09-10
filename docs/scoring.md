@@ -147,8 +147,39 @@ is exactly the signal.
 in `notes.varies_by_context`, with the range so a consumer can see how far apart
 the two habits are. See [schema.md](schema.md).
 
-Per-context profiles — splitting `contexts` by setting rather than averaging —
-are the other half of this, and still to come.
+### Splitting instead of averaging
+
+Naming the contradiction is half of it. The other half is doing something about
+it: label a sample with where it was written and that context gets its own
+profile.
+
+```
+llmtone analyse work-email.md --save --context work
+llmtone prompt --context work
+```
+
+The label rides on the **evidence record**, not the profile, so contexts obey
+the same rule as everything else here — the profile stays a function of the
+log, and relabelling means appending evidence rather than editing a result.
+Unlabelled writing belongs to no context: unlabelled means unknown, not
+"other".
+
+A context is scored by exactly the same function as the whole corpus, so its
+confidence means the same thing. That has a consequence worth expecting rather
+than being surprised by: **a context is usually more confident than the pooled
+profile.** Two samples that contradict each other drag consistency down
+together; split by where they were written, each side agrees with itself. This
+is the payoff — a profile that was 0.30 confident about your formality because
+you write two ways can be 0.63 confident about how you write at work.
+
+A context needs 200 words before it appears at all. Below that every dimension
+would score under the 0.45 threshold, so the entry would be a heading with
+nothing under it.
+
+What this does not do: it will not guess the labels. Clustering samples into
+contexts nobody named would mean inventing a distance measure over style
+vectors and then defending whatever it produced. A label you typed is worth
+more than a cluster llmtone argued itself into.
 
 ### The threshold that matters
 

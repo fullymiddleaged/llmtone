@@ -110,9 +110,29 @@ two.
 Per-context overrides — `work`, `casual`, `public`, `technical`, or a custom
 name — each a partial profile of the same shape, overriding the top level.
 
-**Always `{}` in Phase 1.** Contexts only appear once there is evidence that
-someone genuinely writes differently in different settings; inventing them up
-front would mean asking five questions to fill in boxes nobody asked for.
+```json
+"contexts": {
+  "work": {
+    "style": { "formality": { "value": 82, "confidence": 0.63 } },
+    "metadata": { "sample_count": 2, "word_count": 862 }
+  }
+}
+```
+
+**A context carries only what it overrides.** llmtone emits `style` and
+`metadata`; punctuation, vocabulary and structure stay at the top level,
+because a context is a change of register, not a different person. Read a
+context by merging it over the top-level profile, and treat a dimension it does
+not mention as unchanged.
+
+Each context is scored by the same code as the whole profile, so its
+`confidence` means the same thing and reflects only that context's evidence.
+It is often *higher* than the top-level confidence: samples that contradict each
+other pooled will agree once they are split by where they were written.
+
+Empty until samples carry a context label and one of them clears 200 words —
+below that every dimension would land under 0.45 anyway, and the entry would be
+a heading with nothing under it.
 
 ### `metadata`
 
