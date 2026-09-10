@@ -8,15 +8,18 @@ inputs always produce the same profile, byte for byte.
 from __future__ import annotations
 
 import json
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 
 from ..analysis import Analysis, analyse
 from ..analysis.punctuation import MARKS
+from ..analysis.vocabulary import LIST_LIMIT
 from ..scoring import DIMENSIONS, DimensionResult, score_all
 
 __all__ = [
     "VoiceProfile",
     "DimensionScore",
+    "WordVerdict",
     "build_profile",
     "SCHEMA_VERSION",
     "PARAGRAPH_BANDS",
@@ -43,6 +46,24 @@ def _band(value: float, bands: tuple[tuple[float, str], ...], top: str) -> str:
         if value <= threshold:
             return label
     return top
+
+
+@dataclass(frozen=True)
+class WordVerdict:
+    """One answered A/B word choice.
+
+    ``chosen`` is the word the person said they would write, or ``None`` if
+    they would write neither. Either way this is evidence of *preference*,
+    which is what the absence-based ``avoid`` list has never had.
+    """
+
+    formal: str
+    plain: str
+    chosen: str | None
+
+    @property
+    def avoids_formal(self) -> bool:
+        return self.chosen != self.formal
 
 
 @dataclass(frozen=True)
@@ -125,12 +146,19 @@ def build_profile(
     created_at: str,
     updated_at: str,
     sample_count: int | None = None,
+    verdicts: "Sequence[WordVerdict]" = (),
 ) -> VoiceProfile:
-    """Build a profile from writing samples.
+    """Build a profile from writing samples and any answered word choices.
 
     The corpus is analysed as one document (so counts are exact rather than
     averaged), and each sample is analysed separately so the scorer can measure
     how consistent the person is across them.
+
+    ``verdicts`` are answered A/B choices. They touch the vocabulary lists only:
+    a word someone chose against is real evidence of avoidance, and it displaces
+    the guesses the ``avoid`` list is otherwise made of. No dimension value or
+    confidence moves -- a stated preference is not observed behaviour, and the
+    scorer stays a function of the writing alone.
     """
     texts = [t for t in texts if t and t.strip()]
     corpus_text = "\n\n".join(texts)
@@ -170,6 +198,26 @@ def build_profile(
     }
 
     vocab = corpus.vocabulary
+    chosen_against: list[str] = []
+    chosen_for: list[str] = []
+    for verdict in verdicts:
+        target = chosen_against if verdict.avoids_formal else chosen_for
+        other = chosen_for if verdict.avoids_formal else chosen_against
+        if verdict.formal in other:  # answered again, differently: latest wins
+            other.remove(verdict.formal)
+        if verdict.formal not in target:
+            target.append(verdict.formal)
+
+    # Confirmed avoidance first, and it displaces guesses rather than adding to
+    # them: a list of twelve words is only useful if the best evidence is at the
+    # top of it.
+    inferred = [
+        word for word in vocab.avoid
+        if word not in chosen_against and word not in chosen_for
+    ]
+    avoid = chosen_against + inferred[: max(0, LIST_LIMIT - len(chosen_against))]
+    prefer = vocab.prefer + [w for w in chosen_for if w not in vocab.prefer]
+
     return VoiceProfile(
         version=SCHEMA_VERSION,
         profile_id=profile_id,
@@ -186,8 +234,8 @@ def build_profile(
         },
         punctuation=punctuation,
         vocabulary={
-            "prefer": vocab.prefer,
-            "avoid": vocab.avoid,
+            "prefer": prefer,
+            "avoid": avoid,
             "technical_terms": vocab.technical_terms,
             "colloquialisms": vocab.colloquialisms,
         },
@@ -210,7 +258,12 @@ def build_profile(
         },
         notes={
             "approximate_metrics": list(corpus.to_dict()["approximate_metrics"]),
-            "avoid_inferred_from_absence": True,
+            # True only while some entry is still a guess. Consumers use this to
+            # decide how hard to enforce the list.
+            "avoid_inferred_from_absence": bool(
+                [w for w in avoid if w not in chosen_against]
+            ),
+            "avoid_confirmed_by_choice": [w for w in avoid if w in chosen_against],
             "describes": "writing behaviour only, not personality",
         },
     )

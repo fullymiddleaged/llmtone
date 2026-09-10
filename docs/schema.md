@@ -44,7 +44,7 @@ someone writes, which they own, and which no single tool controls.
   "structure": { "paragraph_length": "short", "bullet_preference": "medium" },
   "contexts": {},
   "metadata": { "sample_count": 6, "word_count": 473 },
-  "notes": { "avoid_inferred_from_absence": true }
+  "notes": { "avoid_inferred_from_absence": true, "avoid_confirmed_by_choice": ["thus", "hence"] }
 }
 ```
 
@@ -88,9 +88,13 @@ rare` and `semicolon: rare` describe very different absolute frequencies. See
 | `technical_terms` | domain vocabulary, detected by lexicon and by shape | good |
 | `colloquialisms` | informal vocabulary they use | good |
 
-`avoid` is inferred from **absence**, which is much weaker evidence than
-presence, and `notes.avoid_inferred_from_absence` says so. Treat it as a hint,
-not a rule. It is empty below 200 words of evidence.
+`avoid` mixes two kinds of evidence, and the notes tell them apart. Entries in
+`notes.avoid_confirmed_by_choice` were chosen against directly — the person was
+shown "utilise" and "use" and picked one (`llmtone calibrate`) — so they can be
+enforced strictly. The rest are inferred from **absence**, which is much weaker,
+and `notes.avoid_inferred_from_absence` stays true while any remain. Confirmed
+entries sort first. The absence-based part is empty below 200 words of
+evidence.
 
 `prefer` is style vocabulary only. Subject matter lives in `technical_terms`, so
 a consumer can use one for voice and the other for domain without confusing the

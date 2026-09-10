@@ -15,6 +15,10 @@ inverse. The absolute values sum to 1.0, so a dimension always lands in 0-100.
 fully covered. ``confidence_ceiling`` is the highest confidence this dimension
 can ever reach -- an honest admission that some things cannot be inferred
 reliably by counting words. Humour has the lowest ceiling for that reason.
+
+``calibration_importance`` is used only by ``calibration/selection.py``: how
+much it matters to get this dimension right, and therefore how hard calibration
+should chase it. It has no effect on any score.
 """
 
 from __future__ import annotations
@@ -86,6 +90,9 @@ class Dimension:
     confidence_ceiling: float
     low_label: str
     high_label: str
+    #: How much a wrong answer here would cost the reader, 0-1. Drives which
+    #: question calibration asks next; never touches a value or a confidence.
+    calibration_importance: float = 1.0
 
     def contributions(self, features: dict[str, float]) -> dict[str, float]:
         """Per-feature contribution to this dimension's 0-100 value.
@@ -123,6 +130,7 @@ DIMENSIONS: tuple[Dimension, ...] = (
         confidence_ceiling=0.90,
         low_label="casual",
         high_label="formal",
+        calibration_importance=1.00,  # getting the register wrong is the most obvious failure
     ),
     Dimension(
         name="directness",
@@ -140,6 +148,7 @@ DIMENSIONS: tuple[Dimension, ...] = (
         confidence_ceiling=0.85,
         low_label="indirect",
         high_label="direct",
+        calibration_importance=1.00,  # the difference between useful and mealy-mouthed
     ),
     Dimension(
         name="warmth",
@@ -157,6 +166,7 @@ DIMENSIONS: tuple[Dimension, ...] = (
         confidence_ceiling=0.72,
         low_label="detached",
         high_label="warm",
+        calibration_importance=0.80,  # noticeable, but tolerant of being slightly off
     ),
     Dimension(
         name="conciseness",
@@ -173,6 +183,7 @@ DIMENSIONS: tuple[Dimension, ...] = (
         confidence_ceiling=0.90,
         low_label="expansive",
         high_label="concise",
+        calibration_importance=0.95,  # length is what readers complain about first
     ),
     Dimension(
         name="humour",
@@ -189,6 +200,7 @@ DIMENSIONS: tuple[Dimension, ...] = (
         confidence_ceiling=0.55,
         low_label="straight-faced",
         high_label="playful",
+        calibration_importance=0.50,  # capped at 0.55 confidence anyway -- chasing it is poor value
     ),
     Dimension(
         name="hedging",
@@ -204,6 +216,7 @@ DIMENSIONS: tuple[Dimension, ...] = (
         confidence_ceiling=0.85,
         low_label="unqualified",
         high_label="hedged",
+        calibration_importance=0.80,  # matters, and moves fast once there is evidence
     ),
     Dimension(
         name="technicality",
@@ -220,6 +233,7 @@ DIMENSIONS: tuple[Dimension, ...] = (
         confidence_ceiling=0.88,
         low_label="plain",
         high_label="technical",
+        calibration_importance=0.70,  # largely a function of the subject, not the person
     ),
     Dimension(
         name="conversationality",
@@ -237,6 +251,7 @@ DIMENSIONS: tuple[Dimension, ...] = (
         confidence_ceiling=0.88,
         low_label="written",
         high_label="spoken",
+        calibration_importance=0.90,  # carries a lot of what people mean by 'sounds like me'
     ),
 )
 
@@ -260,6 +275,8 @@ def _validate() -> None:
             )
         if not 0.0 < dimension.confidence_ceiling <= 1.0:
             raise AssertionError(f"{dimension.name}: bad confidence ceiling")
+        if not 0.0 < dimension.calibration_importance <= 1.0:
+            raise AssertionError(f"{dimension.name}: bad calibration importance")
 
 
 _validate()

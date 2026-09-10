@@ -135,6 +135,56 @@ summary and left out of the generated instructions entirely. Telling a model
 
 ---
 
+## Choosing what to ask next
+
+`llmtone calibrate` picks questions instead of asking a fixed list. Three
+numbers decide it, all in
+[`llmtone/calibration/selection.py`](../llmtone/calibration/selection.py):
+
+```
+priority = uncertainty x importance / (1 + saturation)
+```
+
+**Uncertainty is measured against the ceiling, not against 1.0:**
+
+```
+uncertainty = (ceiling - confidence) / ceiling
+```
+
+On raw `1 - confidence`, humour would be the most uncertain dimension forever —
+it caps at 0.55 — and every question would chase the one thing word-counting
+cannot see. Measuring the gap to what is actually achievable means a dimension
+drops out of the queue once it is as settled as it can get.
+
+**Importance** (`calibration_importance` in `dimensions.py`) is how much getting
+this dimension wrong would cost the reader: formality and directness 1.0,
+humour 0.5. It affects nothing but question choice.
+
+**Saturation** counts how many questions have already been aimed at a dimension,
+weighting each question's targets by position — a question that touched warmth
+third barely counts as having covered warmth. Selection re-ranks after every
+pick, so a round of three spreads across three weak dimensions instead of asking
+the same thing three ways.
+
+Ties break on question id, so the same profile and history always produce the
+same questions in the same order.
+
+### What selection does not do
+
+It chooses which question appears on the screen. That is all. The answer is
+stored as evidence and analysed by the same code as any other sample — there is
+no path by which "we asked about hedging" becomes "hedging is 60". Every
+question's `targets` are written by hand in `questions.py`.
+
+### Why confidence sometimes falls after calibrating
+
+Because consistency is part of confidence. Answers that disagree with what was
+already there lower it, which is the honest result: two samples that contradict
+each other are less evidence for a single value than one sample was. The CLI
+says so rather than hiding the drop.
+
+---
+
 ## Vocabulary: prefer and avoid
 
 `prefer` is evidence of **presence** — recurring *style* words and phrases you
@@ -159,10 +209,22 @@ Much weaker, and treated accordingly:
 - The profile carries `notes.avoid_inferred_from_absence: true`, and the CLI
   labels the list as a hint.
 
-This is the weakest part of Phase 1 and the clearest argument for Phase 2.
-Calibration answers and, later, observed edits turn "you never wrote this" into
-"you chose the other one" — evidence of preference rather than evidence of
-silence.
+`llmtone calibrate` fixes this one word at a time. Shown "utilise" and "use"
+and asked which you would write, your answer turns "you never wrote this" into
+"you chose the other one" — evidence of preference rather than of silence.
+Confirmed words sort to the top of `avoid` and are listed in
+`notes.avoid_confirmed_by_choice`; the renderer tells a model to never use those
+and to *probably* avoid the rest.
+
+Which pairs get offered follows the same principle as everything else here:
+first the words the profile has already guessed you avoid, because those are the
+claims it is least entitled to make.
+
+**A choice moves no dimension value and no confidence.** Saying you would write
+"use" is not the same as being observed writing it, so a choice touches the
+vocabulary lists and nothing else. The scorer stays a function of your writing
+alone. Observed edits — the strongest evidence of all, because you did not know
+you were being asked — are still to come.
 
 ---
 
@@ -176,6 +238,8 @@ Everything you'd want to change is data:
 | how much a feature matters | `weights` in `scoring/dimensions.py` |
 | what counts as "a lot" of a feature | `FEATURE_RANGES` |
 | how quickly confidence builds | `target_words`, `confidence_ceiling` |
+| which dimension calibration chases | `calibration_importance` in `scoring/dimensions.py` |
+| what calibration can ask | `CALIBRATION_QUESTIONS` in `calibration/questions.py` |
 | how uncertainty is described | `scoring/scorer.py` constants |
 
 The tests assert *relative* outcomes — the formal fixture scores higher on

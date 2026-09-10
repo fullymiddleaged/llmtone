@@ -193,11 +193,10 @@ class TestProfileAndPrompt:
         assert "Run `llmtone init` first" in capsys.readouterr().out
 
 
-class TestPhaseTwoStubs:
-    @pytest.mark.parametrize("command", [["calibrate"], ["check", "some.txt"]])
-    def test_stubs_exit_distinctly_and_explain(self, home, capsys, command):
-        assert run(command, home) == EXIT_NOT_YET
-        assert "Phase 2" in capsys.readouterr().out
+class TestUnbuiltCommands:
+    def test_check_exits_distinctly_and_explains(self, home, capsys):
+        assert run(["check", "some.txt"], home) == EXIT_NOT_YET
+        assert "Phase 3" in capsys.readouterr().out
 
 
 class TestDifferentWritersDifferentOutput:

@@ -107,6 +107,11 @@
       "properties": {
         "approximate_metrics": { "type": "array", "items": { "type": "string" } },
         "avoid_inferred_from_absence": { "type": "boolean" },
+        "avoid_confirmed_by_choice": {
+          "type": "array",
+          "description": "Entries of vocabulary.avoid the person chose against when shown the alternative. Evidence of preference rather than of absence, so a consumer may enforce these strictly.",
+          "items": { "type": "string" }
+        },
         "describes": { "type": "string" }
       }
     }

@@ -26,10 +26,13 @@ from pathlib import Path
 
 __all__ = ["Evidence", "EVIDENCE_KINDS", "append", "load", "new_id"]
 
-#: Kinds of evidence. Phase 1 produces the first two; the rest are the slots
-#: that calibration and edit-learning will fill without a schema change.
+#: Kinds of evidence. ``calibration_response`` is a free-text answer to a
+#: question chosen adaptively rather than asked in order; ``calibration_choice``
+#: is the A/B pick, and ``observed_edit`` is edit-learning -- both still to come,
+#: and both slot in without a schema change.
 EVIDENCE_KINDS = (
     "onboarding_response",
+    "calibration_response",
     "writing_sample",
     "manual_edit",
     "calibration_choice",

@@ -171,14 +171,48 @@ llmtone export -o voice-profile.json
 | `llmtone profile` | Your profile, as bars and prose. |
 | `llmtone prompt` | Model-independent writing instructions. |
 | `llmtone export` | The profile as JSON. |
-| `llmtone calibrate` | Phase 2. |
-| `llmtone check FILE` | Phase 2. |
+| `llmtone calibrate` | More questions, chosen by whatever the profile is least sure of, plus a couple of A/B word choices. `-n` and `--pairs` set how many of each, `--dry-run` shows what it would ask. |
+| `llmtone check FILE` | Phase 3. |
 
 Add more writing at any time — the profile gets better as it sees more:
 
 ```bash
 llmtone analyse --save ~/notes/some-real-email.txt
 ```
+
+Or let it ask. `llmtone calibrate` looks at which dimensions are least settled
+and picks questions aimed at those, so the second session is not a repeat of the
+first:
+
+```
+$ llmtone calibrate --dry-run
+
+Chasing: hedging (conf 0.49), conciseness (conf 0.56), directness (conf 0.58)
+
+Would ask 3:
+
+  Your manager asks for something on a timeline you think is unrealistic.
+  Write your reply.
+    for: hedging, directness, formality
+  ...
+```
+
+Answers are analysed exactly like any other writing — the selection decides
+*which question you see*, never what the answer scores.
+
+It also offers a few straight choices:
+
+```
+Which of these would you actually write?
+  1) utilise
+  2) use
+  [1, 2, n for neither, Enter to skip]
+```
+
+That is what makes the `avoid` list worth anything. Without it, llmtone can only
+notice that you have never written "utilise" in 400 words and guess. One
+keystroke turns the guess into evidence, and the generated prompt says *never
+use* for the words you chose against and *probably avoid* for the rest.
 
 ## Your data
 
@@ -267,8 +301,9 @@ is documented in [docs/schema.md](docs/schema.md).
 **Phase 1 — done.** Text analyser, profile schema, deterministic scoring, CLI,
 onboarding, writing-sample analysis, prompt renderer.
 
-**Phase 2.** A/B question library, adaptive question selection driven by which
-dimensions are least certain, contradiction detection, per-context profiles.
+**Phase 2 — in progress.** Adaptive question selection and the A/B word-choice
+library: done (`llmtone calibrate`). Still to come: contradiction detection and
+per-context profiles.
 
 **Phase 3.** `llmtone check` (a personal-style consistency checker — explicitly
 *not* an AI detector), learning from your edits, MCP server, integration docs.

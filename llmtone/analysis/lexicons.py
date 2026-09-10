@@ -131,6 +131,13 @@ FORMAL_TO_PLAIN = {
     "expedite": "speed up", "initiate": "start", "cease": "stop",
     "optimal": "best", "in order to": "to", "at this time": "now",
     "due to the fact that": "because", "in the event that": "if",
+    # Added so calibration can offer them as a straight choice (see
+    # calibration/pairs.py). Only swaps with a genuine one-word plain
+    # equivalent belong here -- "synergy" and "robust" have none, which is
+    # why they stay absence-only candidates.
+    "leverage": "use", "delve": "dig into", "streamline": "simplify",
+    "myriad": "many", "plethora": "plenty", "thus": "so", "hence": "so",
+    "nonetheless": "even so",
 }
 
 # Formal connectives specifically -- a strong, low-noise formality signal.

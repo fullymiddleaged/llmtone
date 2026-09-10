@@ -194,13 +194,20 @@ def render_summary(profile: VoiceProfile) -> str:
 
     prefer = profile.vocabulary.get("prefer", [])
     avoid = profile.vocabulary.get("avoid", [])
+    confirmed = set(profile.notes.get("avoid_confirmed_by_choice", []))
     if prefer:
         lines.append("\nPrefer\n" + "\n".join(f"  - {w}" for w in prefer))
     if avoid:
-        lines.append(
-            "\nAvoid\n" + "\n".join(f"  - {w}" for w in avoid)
-            + "\n  (inferred from what you never write, so treat as a hint)"
-        )
+        block = ["\nAvoid"]
+        for word in avoid:
+            mark = "" if word in confirmed else "  ?"
+            block.append(f"  - {word}{mark}")
+        guessed = [w for w in avoid if w not in confirmed]
+        if guessed:
+            block.append(
+                "  ? inferred from what you never write, so treat as a hint"
+            )
+        lines.append("\n".join(block))
     return "\n".join(lines)
 
 
@@ -271,14 +278,25 @@ def render_instructions(profile: VoiceProfile) -> str:
 
     prefer = profile.vocabulary.get("prefer", [])
     avoid = profile.vocabulary.get("avoid", [])
+    confirmed = [
+        word for word in avoid
+        if word in set(profile.notes.get("avoid_confirmed_by_choice", []))
+    ]
+    guessed = [word for word in avoid if word not in confirmed]
     phrases = profile.phrasing.get("preferred", [])
     if prefer:
         out.append(f"- Vocabulary they reach for: {', '.join(prefer)}.")
     if phrases:
         out.append(f"- Turns of phrase they use: {', '.join(phrases)}.")
-    if avoid:
+    if confirmed:
         out.append(
-            f"- Words absent from their writing, so avoid: {', '.join(avoid)}."
+            f"- They chose against these words when asked directly, so never "
+            f"use them: {', '.join(confirmed)}."
+        )
+    if guessed:
+        out.append(
+            f"- Words absent from their writing, so probably avoid: "
+            f"{', '.join(guessed)}."
         )
     technical = profile.vocabulary.get("technical_terms", [])
     if technical:

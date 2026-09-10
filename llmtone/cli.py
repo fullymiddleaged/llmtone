@@ -5,8 +5,8 @@
     llmtone profile       your profile, as bars and prose
     llmtone prompt        model-independent writing instructions
     llmtone export        the profile as JSON
-    llmtone calibrate     (Phase 2)
-    llmtone check FILE    (Phase 2)
+    llmtone calibrate     more questions, chosen by what is least certain
+    llmtone check FILE    (Phase 3)
 
 Colour is written by hand rather than pulled in as a dependency, and turns
 itself off when output is not a terminal or NO_COLOR is set.
@@ -23,8 +23,21 @@ from pathlib import Path
 
 from . import __version__
 from .analysis import analyse
-from .calibration import ONBOARDING_QUESTIONS, record_response, record_sample
+from .calibration import (
+    ONBOARDING_QUESTIONS,
+    answered_pair_ids,
+    answered_question_ids,
+    record_calibration,
+    record_choice,
+    record_response,
+    record_sample,
+    select_pairs,
+    select_questions,
+    verdicts_from_evidence,
+)
+from .calibration.pairs import SKIP
 from .calibration.questions import MIN_ANSWER_WORDS
+from .calibration.selection import DEFAULT_ROUND, dimension_priority
 from .evidence import utc_now
 from .profile import (
     Storage,
@@ -38,10 +51,17 @@ EXIT_OK = 0
 EXIT_ERROR = 1
 EXIT_NOT_YET = 2
 
-_PHASE_2_MESSAGE = (
-    "`llmtone {name}` lands in Phase 2. Phase 1 covers init, analyse, "
+_NOT_YET_MESSAGE = (
+    "`llmtone {name}` lands in Phase 3. Today: init, calibrate, analyse, "
     "profile, prompt and export."
 )
+
+#: Confidence moves smaller than this are rounding, not progress.
+CONFIDENCE_DELTA_FLOOR = 0.01
+
+#: Word choices offered per calibration round. Quick to answer, so a couple
+#: alongside the written questions costs nothing.
+DEFAULT_PAIRS = 2
 
 
 # --- output helpers ---------------------------------------------------------
@@ -128,6 +148,7 @@ def _rebuild(storage: Storage, out: Out) -> None:
     existing = storage.load_profile()
     profile = build_profile(
         texts,
+        verdicts=verdicts_from_evidence(storage.evidence()),
         profile_id=existing.profile_id if existing else uuid.uuid4().hex[:16],
         created_at=(
             existing.metadata.get("created_at") if existing else None
@@ -152,7 +173,7 @@ def _prompt_multiline(out: Out, label: str) -> str:
     while True:
         try:
             line = input()
-        except EOFError:
+        except (EOFError, OSError):
             break
         if not line.strip() and lines:
             break
@@ -341,8 +362,232 @@ def cmd_export(args: argparse.Namespace, out: Out) -> int:
     return EXIT_OK
 
 
+def _confidences(profile) -> dict[str, float]:
+    return {name: score.confidence for name, score in profile.style.items()}
+
+
+def _report_movement(out: Out, before: dict[str, float], after: dict[str, float]) -> None:
+    """Show what the answers actually bought, in confidence terms."""
+    moved = [
+        (name, before.get(name, 0.0), after[name])
+        for name in after
+        if abs(after[name] - before.get(name, 0.0)) >= CONFIDENCE_DELTA_FLOOR
+    ]
+    if not moved:
+        out.say(out.dim("  No dimension moved much. More writing is what shifts these."))
+        return
+    out.say(out.bold("What that changed"))
+    out.say()
+    for name, old, new in moved:
+        out.say(
+            f"  {name.capitalize():<18} conf {old:.2f} -> {new:.2f}  "
+            + out.dim("up" if new > old else "down")
+        )
+    if any(new < old for _, old, new in moved):
+        out.say()
+        out.say(
+            out.dim(
+                "  Some fell. More evidence that disagrees with the evidence "
+                "already there lowers confidence -- that is the consistency "
+                "term doing its job, not a fault. See docs/scoring.md."
+            )
+        )
+
+
+def _prompt_choice(out: Out, pair) -> tuple[bool, str | None]:
+    """Ask one A/B word choice. Returns (answered, chosen-word-or-None)."""
+    out.say(out.cyan(pair.question()))
+    out.say(f"  1) {pair.formal}")
+    out.say(f"  2) {pair.plain}")
+    while True:
+        out.say(out.dim("  [1, 2, n for neither, Enter to skip]"))
+        try:
+            reply = input().strip().lower()
+        except (EOFError, OSError):
+            # No one is there to answer -- a pipe, or a closed stdin.
+            return (False, None)
+        if reply == "":
+            return (False, None)
+        if reply in ("1", pair.formal):
+            return (True, pair.formal)
+        if reply in ("2", pair.plain):
+            return (True, pair.plain)
+        if reply in ("n", SKIP):
+            return (True, None)
+        out.say(out.dim("  Sorry -- 1, 2, n, or Enter."))
+
+
+def _scripted_choice(pair, scripted: dict[str, str]) -> tuple[bool, str | None]:
+    """Resolve one choice from a --choices file. A missing key means skip."""
+    if pair.id not in scripted:
+        return (False, None)
+    value = str(scripted[pair.id]).strip().lower()
+    if value in (pair.formal, pair.plain):
+        return (True, value)
+    if value in (SKIP, "n", "none"):
+        return (True, None)
+    raise ValueError(
+        f"{pair.id}: expected {pair.formal!r}, {pair.plain!r} or {SKIP!r}, "
+        f"got {value!r}"
+    )
+
+
+def _run_pairs(storage: Storage, out: Out, pairs, scripted, seq: int) -> int:
+    """Offer the word choices. Returns how many were answered."""
+    if not pairs:
+        return 0
+    out.say(out.bold("Two ways of saying the same thing."))
+    out.say(
+        out.dim(
+            "Your avoid list is otherwise guesswork -- words you happen not to "
+            "have written yet. Picking one of these makes it evidence."
+        )
+    )
+    out.say()
+    answered = 0
+    for pair in pairs:
+        if scripted is not None:
+            found, chosen = _scripted_choice(pair, scripted)
+            if found:
+                out.say(out.cyan(f"{pair.formal} / {pair.plain}"))
+                out.say(out.dim(f"  chose: {chosen or SKIP}"))
+        else:
+            found, chosen = _prompt_choice(out, pair)
+        if not found:
+            out.say(out.dim(f"  {pair.formal} / {pair.plain}: skipped"))
+            out.say()
+            continue
+        record_choice(storage, pair, chosen, seq + answered)
+        answered += 1
+        out.say()
+    return answered
+
+
+def cmd_calibrate(args: argparse.Namespace, out: Out) -> int:
+    """Ask about whatever the profile is least sure of."""
+    storage = Storage.open(args.home)
+    profile = storage.load_profile()
+    if profile is None:
+        out.say(
+            f"No profile at {storage.profile_path}. Run `llmtone init` first -- "
+            "calibration works out what to ask from what you already have."
+        )
+        return EXIT_ERROR
+
+    records = storage.evidence()
+    asked = answered_question_ids(records)
+    chosen = select_questions(profile, asked_ids=asked, count=args.count)
+    pairs = select_pairs(
+        profile, asked_ids=answered_pair_ids(records), count=args.pairs
+    )
+
+    out.say(out.bold("llmtone calibrate"))
+    priority = dimension_priority(profile, asked)
+    weakest = sorted(priority.items(), key=lambda kv: (-kv[1], kv[0]))[:3]
+    out.say(
+        "Chasing: "
+        + ", ".join(
+            f"{name} (conf {profile.style[name].confidence:.2f})"
+            for name, _ in weakest
+            if name in profile.style
+        )
+    )
+    out.say(out.dim("Still on this machine. Still no network code."))
+    out.say()
+
+    if args.count <= 0 and args.pairs <= 0:
+        out.say("Nothing to ask: both -n and --pairs are zero.")
+        return EXIT_OK
+
+    if not chosen and not pairs:
+        out.say(
+            "You've answered everything in the bank. Feed it real writing "
+            "instead: `llmtone analyse --save FILE`."
+        )
+        return EXIT_OK
+
+    if not chosen and args.count > 0:
+        out.say(
+            out.dim("No written questions left in the bank -- word choices only.")
+        )
+        out.say()
+
+    if args.dry_run:
+        out.say(out.bold(f"Would ask {len(chosen)}:"))
+        out.say()
+        for candidate in chosen:
+            out.say(out.cyan(f"  {candidate.question.text}"))
+            out.say(out.dim(f"    for: {candidate.reason()}"))
+            out.say()
+        if pairs:
+            out.say(out.bold(f"Then {len(pairs)} word choices:"))
+            out.say()
+            for pair in pairs:
+                # The id is printed so that a --choices file can be written
+                # against exactly the pairs this round would offer.
+                out.say(
+                    out.cyan(f"  {pair.formal} or {pair.plain}?")
+                    + out.dim(f"   ({pair.id})")
+                )
+            out.say()
+        return EXIT_OK
+
+    scripted = _read_answers_file(Path(args.answers)) if args.answers else None
+    scripted_choices = (
+        _read_answers_file(Path(args.choices)) if args.choices else None
+    )
+
+    seq = len(records)
+    before = _confidences(profile)
+    before_avoid = list(profile.notes.get("avoid_confirmed_by_choice", []))
+    answered = 0
+    for candidate in chosen:
+        question = candidate.question
+        out.say(out.cyan(question.text))
+        out.say(out.dim(f"  asking because: {candidate.reason()}"))
+        if scripted is not None:
+            answer = scripted.get(question.id, "")
+            if answer:
+                out.say(out.dim(f"  (from {args.answers})"))
+        else:
+            answer = _prompt_multiline(out, f"  {question.hint} (blank line to finish)")
+        if not answer.strip():
+            out.say(out.dim("  skipped"))
+            out.say()
+            continue
+        words = len(answer.split())
+        if words < MIN_ANSWER_WORDS:
+            out.say(out.dim(f"  noted ({words} words -- a bit short, but fine)"))
+        record_calibration(storage, question, answer, seq)
+        seq += 1
+        answered += 1
+        out.say()
+
+    answered += _run_pairs(storage, out, pairs, scripted_choices, seq + answered)
+
+    if not answered:
+        out.say("Nothing answered, nothing changed.")
+        return EXIT_OK
+
+    _rebuild(storage, out)
+    updated = storage.load_profile()
+    if updated is not None:
+        out.say()
+        confirmed = [
+            word for word in updated.notes.get("avoid_confirmed_by_choice", [])
+            if word not in before_avoid
+        ]
+        if confirmed:
+            out.say(out.bold("Now evidence rather than guesswork"))
+            out.say()
+            out.say(f"  Avoid: {', '.join(confirmed)}")
+            out.say()
+        _report_movement(out, before, _confidences(updated))
+    return EXIT_OK
+
+
 def cmd_not_yet(args: argparse.Namespace, out: Out) -> int:
-    out.say(_PHASE_2_MESSAGE.format(name=args.command))
+    out.say(_NOT_YET_MESSAGE.format(name=args.command))
     return EXIT_NOT_YET
 
 
@@ -382,14 +627,37 @@ def build_parser() -> argparse.ArgumentParser:
     export_cmd.add_argument("-o", "--output", help="Write to a file instead of stdout.")
     export_cmd.set_defaults(func=cmd_export)
 
-    for name, help_text in (
-        ("calibrate", "Adaptive calibration questions (Phase 2)."),
-        ("check", "Check text against your profile (Phase 2)."),
-    ):
-        stub = subparsers.add_parser(name, help=help_text)
-        if name == "check":
-            stub.add_argument("file", nargs="?")
-        stub.set_defaults(func=cmd_not_yet)
+    calibrate_cmd = subparsers.add_parser(
+        "calibrate", help="More questions, chosen by what is least certain."
+    )
+    calibrate_cmd.add_argument(
+        "-n", "--count", type=int, default=DEFAULT_ROUND,
+        help=f"How many questions to ask (default {DEFAULT_ROUND}).",
+    )
+    calibrate_cmd.add_argument(
+        "--pairs", type=int, default=DEFAULT_PAIRS,
+        help=(
+            f"How many A/B word choices to offer (default {DEFAULT_PAIRS}, "
+            "0 for none)."
+        ),
+    )
+    calibrate_cmd.add_argument(
+        "--answers", help="JSON file of question id -> answer (non-interactive)."
+    )
+    calibrate_cmd.add_argument(
+        "--choices", help="JSON file of pair id -> chosen word (non-interactive)."
+    )
+    calibrate_cmd.add_argument(
+        "--dry-run", action="store_true",
+        help="Show what it would ask, and why, without asking or writing.",
+    )
+    calibrate_cmd.set_defaults(func=cmd_calibrate)
+
+    check_cmd = subparsers.add_parser(
+        "check", help="Check text against your profile (Phase 3)."
+    )
+    check_cmd.add_argument("file", nargs="?")
+    check_cmd.set_defaults(func=cmd_not_yet)
 
     return parser
 

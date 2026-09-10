@@ -1,6 +1,6 @@
 {
   "version": "1.0",
-  "profile_id": "0459b4802fef4bf8",
+  "profile_id": "a9d58cf8e43d41e2",
   "style": {
     "formality": {
       "value": 20,
@@ -63,14 +63,14 @@
       "rather"
     ],
     "avoid": [
-      "leverage",
-      "delve",
+      "thus",
+      "hence",
       "robust",
       "seamless",
       "holistic",
       "synergy",
-      "thus",
-      "hence",
+      "ascertain",
+      "stakeholder",
       "it is important to note",
       "it should be noted",
       "in conclusion",
@@ -102,8 +102,8 @@
     "sample_count": 6,
     "word_count": 473,
     "sentence_count": 49,
-    "created_at": "2026-09-10T07:45:31+00:00",
-    "updated_at": "2026-09-10T07:45:31+00:00",
+    "created_at": "2026-09-10T11:20:52+00:00",
+    "updated_at": "2026-09-10T11:20:59+00:00",
     "generator": "llmtone",
     "scoring_version": "1.0"
   },
@@ -114,6 +114,10 @@
       "subordinate_clauses"
     ],
     "avoid_inferred_from_absence": true,
+    "avoid_confirmed_by_choice": [
+      "thus",
+      "hence"
+    ],
     "describes": "writing behaviour only, not personality"
   }
 }
