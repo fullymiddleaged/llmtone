@@ -1,0 +1,48 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "llmtone"
+version = "0.1.0"
+description = "One voice. Any AI. A local-first, portable writing-voice profile."
+readme = "README.md"
+requires-python = ">=3.10"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "llmtone contributors" }]
+keywords = ["writing", "style", "voice", "llm", "local-first", "mcp"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Environment :: Console",
+  "Intended Audience :: Developers",
+  "Programming Language :: Python :: 3",
+  "Topic :: Text Processing :: Linguistic",
+]
+
+# Deliberately empty. The core analysis, scoring and rendering are stdlib-only,
+# and Phase 1 contains no network code at all. See docs/privacy.md.
+dependencies = []
+
+[project.urls]
+Homepage = "https://github.com/llmtone/llmtone"
+Schema = "https://github.com/llmtone/llmtone/blob/main/voice-profile.schema.json"
+
+[project.scripts]
+llmtone = "llmtone.cli:main"
+
+[dependency-groups]
+dev = ["pytest>=8"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["llmtone"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"voice-profile.schema.json" = "llmtone/voice-profile.schema.json"
+
+[tool.hatch.build.targets.sdist]
+include = ["llmtone", "tests", "docs", "examples", "voice-profile.schema.json", "README.md", "LICENSE"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"

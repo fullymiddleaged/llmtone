@@ -1,0 +1,21 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.venv/
+venv/
+.pytest_cache/
+.coverage
+htmlcov/
+.DS_Store
+.idea/
+.vscode/
+
+# Never commit a real profile or writing samples.
+.llmtone/
+*.profile.json
+
+# Local tooling session state
+.clawness/sessions.json
+.clawness/guard_sessions.json

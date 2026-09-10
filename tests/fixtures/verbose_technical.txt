@@ -1,0 +1,49 @@
+Notes on the reporting platform migration, with particular reference to the
+consistency guarantees we can and cannot offer during the transition period.
+
+The existing reporting platform is backed by a single PostgreSQL instance with a
+read replica used exclusively for analytical queries, and the replication is
+asynchronous, which means that the replica may lag behind the primary by an
+interval that varies with write volume and which we have observed to reach
+several seconds during the end-of-month batch window. Any migration strategy
+that reads from the replica must therefore account for the possibility that a
+record written to the primary immediately prior to the cutover has not yet
+propagated, and that a naive comparison between source and destination will
+report a spurious discrepancy.
+
+The archive transfer is the more tractable of the two stages, since the
+historical partitions are immutable once the month has closed, and consequently
+a checksum computed over a closed partition on the source will match a checksum
+computed over the corresponding partition on the destination provided that the
+serialisation format has been preserved exactly. It is worth noting that the
+serialisation format has not in fact been preserved exactly across the two
+previous platform upgrades, because the timestamp columns were migrated from a
+timezone-naive representation to a timezone-aware one, and the conversion was
+performed with an assumed offset that was correct for the majority of records
+but incorrect for those written during the two weeks following each daylight
+saving transition.
+
+The live reporting transfer is considerably more difficult, because the
+reporting functions are not idempotent. A report generated twice against the
+same underlying data will produce two entries in the audit log, and the
+downstream reconciliation process treats a duplicated audit entry as evidence of
+a failed run, which triggers a retry, which produces a third entry. This
+behaviour has been documented since the original implementation but has never
+been exercised in production because the scheduler has never been run
+concurrently against the same dataset.
+
+My recommendation is that we introduce an idempotency key derived from the
+report parameters and the logical reporting date, that we store it in the audit
+table with a unique constraint, and that we treat a constraint violation as a
+successful no-op rather than as an error. This is a small change and it can be
+deployed independently of the migration, which seems to me the strongest
+argument in its favour: it reduces the risk of the migration without being
+coupled to it.
+
+There is a secondary consideration regarding the reconciliation scripts
+themselves. They are written in a mixture of shell and awk, they depend on the
+column ordering of the source tables rather than on column names, and they will
+therefore break silently rather than loudly if the destination schema differs in
+ordering. I would suggest that we regenerate them against column names before
+the migration rather than after, on the grounds that a silent failure discovered
+in January is considerably more expensive than a noisy one discovered now.

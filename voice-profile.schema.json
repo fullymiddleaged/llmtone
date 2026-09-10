@@ -1,0 +1,114 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/llmtone/llmtone/main/voice-profile.schema.json",
+  "title": "Voice Profile",
+  "description": "A portable, model-independent description of how one person writes. This format is published openly so that any tool can read or write it without depending on llmtone. It describes writing behaviour only -- it is not a personality model.",
+  "type": "object",
+  "required": ["version", "profile_id", "style", "metadata"],
+  "properties": {
+    "version": {
+      "type": "string",
+      "description": "Schema version. Consumers should reject a major version they do not understand.",
+      "pattern": "^[0-9]+\\.[0-9]+$"
+    },
+    "profile_id": {
+      "type": "string",
+      "description": "Opaque local identifier. Carries no personal information."
+    },
+    "style": {
+      "type": "object",
+      "description": "Style dimensions. A consumer may encounter dimensions it does not know and should ignore them rather than fail.",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["value", "confidence"],
+        "properties": {
+          "value": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100,
+            "description": "Where this writer sits on the dimension."
+          },
+          "confidence": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1,
+            "description": "How much evidence supports the value. Treat anything below 0.45 as not yet established."
+          }
+        }
+      }
+    },
+    "syntax": {
+      "type": "object",
+      "description": "Observed sentence-level habits.",
+      "properties": {
+        "average_sentence_length": { "type": "number", "minimum": 0 },
+        "sentence_length_variance": { "type": "number", "minimum": 0 },
+        "average_paragraph_length": { "type": "number", "minimum": 0 },
+        "contraction_preference": { "type": "number", "minimum": 0, "maximum": 1 },
+        "fragment_preference": { "type": "number", "minimum": 0, "maximum": 1 },
+        "question_preference": { "type": "number", "minimum": 0, "maximum": 1 },
+        "passive_preference": { "type": "number", "minimum": 0, "maximum": 1 },
+        "vocabulary_diversity": { "type": "number", "minimum": 0 }
+      }
+    },
+    "punctuation": {
+      "type": "object",
+      "description": "How often each mark is used, relative to typical English usage of that mark.",
+      "additionalProperties": {
+        "type": "string",
+        "enum": ["never", "rare", "occasional", "frequent"]
+      }
+    },
+    "vocabulary": {
+      "type": "object",
+      "properties": {
+        "prefer": { "type": "array", "items": { "type": "string" } },
+        "avoid": { "type": "array", "items": { "type": "string" } },
+        "technical_terms": { "type": "array", "items": { "type": "string" } },
+        "colloquialisms": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "phrasing": {
+      "type": "object",
+      "properties": {
+        "preferred": { "type": "array", "items": { "type": "string" } },
+        "avoided": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "structure": {
+      "type": "object",
+      "properties": {
+        "paragraph_length": { "type": "string", "enum": ["short", "medium", "long"] },
+        "heading_preference": { "type": "string", "enum": ["low", "medium", "high"] },
+        "bullet_preference": { "type": "string", "enum": ["low", "medium", "high"] }
+      }
+    },
+    "contexts": {
+      "type": "object",
+      "description": "Optional per-context overrides (work, casual, public, technical, custom). Each value is a partial profile using the same shape. Empty until evidence shows a person writes differently in different settings.",
+      "additionalProperties": { "type": "object" }
+    },
+    "metadata": {
+      "type": "object",
+      "required": ["sample_count", "word_count"],
+      "properties": {
+        "sample_count": { "type": "integer", "minimum": 0 },
+        "word_count": { "type": "integer", "minimum": 0 },
+        "sentence_count": { "type": "integer", "minimum": 0 },
+        "created_at": { "type": "string" },
+        "updated_at": { "type": "string" },
+        "generator": { "type": "string" },
+        "scoring_version": { "type": "string" }
+      }
+    },
+    "notes": {
+      "type": "object",
+      "description": "Honest caveats about how the numbers above were produced.",
+      "properties": {
+        "approximate_metrics": { "type": "array", "items": { "type": "string" } },
+        "avoid_inferred_from_absence": { "type": "boolean" },
+        "describes": { "type": "string" }
+      }
+    }
+  }
+}

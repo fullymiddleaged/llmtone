@@ -1,0 +1,11 @@
+{
+  "onboarding_work": "I look after the deployment pipeline for a mid-sized product team. Mostly that means keeping the build green and stopping things from falling over at four in the morning. Some weeks it's proper engineering work. Other weeks it's chasing down why a test that's passed for two years suddenly doesn't.",
+
+  "onboarding_interest": "I've got really into bread lately. It's the same three ingredients every time and it still goes wrong in about nine different ways, which I find weirdly satisfying. You can't rush it and you can't fake it. Either you paid attention or you didn't.",
+
+  "onboarding_disagreement": "I'd say something like: I don't think that'll work, and here's why. Then I'd give them the specific reason rather than just being negative about it. If they've thought it through and I've missed something, fine, I'd rather find that out now.",
+
+  "onboarding_annoyance": "The expenses system. Three weeks to approve a train ticket and it logs you out every time you upload a receipt. Someone built that on purpose. Someone sat down and decided that's how it should work.",
+
+  "onboarding_explanation": "Debugging is mostly narrowing things down. You find the last point where it definitely worked, the first point where it definitely didn't, and then you keep halving the gap until there's nowhere left for the bug to hide. Most people skip the first two steps and go straight to guessing, which is why it takes them all afternoon."
+}

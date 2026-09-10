@@ -1,0 +1,39 @@
+Hi both!
+
+Thanks so much for sitting through that meeting yesterday — I know it ran long,
+and I really appreciate you both staying to the end. Here's where I think we
+landed, and please do tell me if I've got any of this wrong!
+
+So, the big question was how we move the reporting platform without everything
+catching fire in January. You'll remember we had three options on the table, and
+honestly, none of them felt brilliant when we started.
+
+The eighteen month plan? Lovely and safe, but wow, the cost. And you'd both be
+babysitting two systems the whole time, which doesn't sound like much fun for
+anyone.
+
+The December weekend was the one that worried me most, if I'm honest. I kept
+thinking about you two sitting there at two in the morning on a Sunday hoping
+nothing breaks. That's not a plan, is it? That's a hope.
+
+Which brings us to the middle option, and I think this is the one. We move the
+archive first, we check it properly, and only then do we touch the live
+reporting. If the archive check throws up something horrible, we stop! No harm
+done. That felt like a real relief when Priya suggested it, and I'm so glad she
+did.
+
+A couple of things I'd love your help with, if you've got a moment:
+
+- Could you let me know who from your teams should come to the workshop?
+- Do either of you have a feel for how long the archive move really takes?
+
+And Sam — you mentioned the old reconciliation scripts, and I haven't stopped
+thinking about it since. You're absolutely right that nobody's looked at them in
+years. Would you be willing to take a proper look? No pressure at all if you're
+stretched, but you know that code better than anyone.
+
+One last thing, and then I'll stop filling your inbox. You both did a genuinely
+lovely job of explaining this to the finance folks. They came out of that room
+understanding it, which honestly I wasn't sure was possible. Thank you!
+
+Have a good weekend, both of you.

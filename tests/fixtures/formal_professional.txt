@@ -1,0 +1,48 @@
+Dear colleagues,
+
+Further to the discussion at Tuesday's steering committee, I am writing to
+summarise the position regarding the proposed migration of the reporting
+platform, and to set out the recommended sequence of activities for the coming
+quarter.
+
+The review team has now completed its assessment of the three candidate
+approaches. Each was evaluated against the criteria agreed in March, namely
+total cost of ownership, operational risk, and the degree of disruption
+anticipated during transition. The assessment was conducted by the platform
+group with input from finance and from the regional operations leads.
+
+It should be noted that the first approach, a phased migration undertaken over
+eighteen months, was assessed as carrying the lowest operational risk.
+Nevertheless, the cost implications are considerable, and the extended timeline
+would require the existing platform to be maintained in parallel for a
+substantial period. Furthermore, the resourcing model assumed in that estimate
+has not been validated with the delivery function.
+
+The second approach, a single transition undertaken during the December
+maintenance window, would be materially less expensive. However, the
+concentration of risk within a single weekend is difficult to justify given the
+reporting obligations that fall due in January. Were the transition to fail, the
+consequences for regulatory reporting would be significant.
+
+Accordingly, the review team recommends the third approach. Under this option,
+the reporting platform would be migrated in two stages, with the historical
+archive transferred first and the live reporting functions transferred
+subsequently, once the archive has been verified. This sequencing permits
+verification to be undertaken without affecting current operations, and it
+allows the project to be halted at the stage boundary should the verification
+results prove unsatisfactory.
+
+A detailed implementation plan will be circulated in advance of the next
+committee meeting. In the interim, I would be grateful if departmental leads
+could confirm the availability of their nominated representatives for the
+workshop scheduled for the fourteenth.
+
+I should like to record my appreciation for the work undertaken by the review
+team, which was completed within a demanding timeframe and to a high standard.
+
+Should you require any clarification regarding the foregoing, please do not
+hesitate to contact me directly.
+
+Kind regards,
+
+The Programme Office

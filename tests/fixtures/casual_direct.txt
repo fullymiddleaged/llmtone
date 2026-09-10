@@ -1,0 +1,32 @@
+Right, quick update on the reporting thing.
+
+We're not doing the eighteen month plan. It costs a fortune and we'd be running
+two platforms the whole time. Bin it.
+
+The December weekend idea is worse. One bad Saturday and January reporting is
+gone. Nobody's signing up for that.
+
+So here's what we're doing. Move the archive first. Check it actually works.
+Then move the live reporting. If the archive check goes badly we stop there and
+we've lost a week, not a quarter.
+
+Three things I need from you:
+
+- names for the workshop by Friday
+- a rough headcount for the archive move
+- anyone who thinks this is wrong, tell me now, not in November
+
+On the archive move specifically. Sam reckons we can do it in a fortnight. I
+think that's optimistic but it's his call and he knows the data better than I
+do. Give him what he asks for.
+
+The thing that worries me isn't the migration. It's that nobody has looked at
+the old reconciliation scripts in about three years and they're going to fall
+over the moment we touch anything. Someone needs to own that. Volunteers
+welcome, otherwise I'm picking someone.
+
+One more thing. We keep saying we'll document this properly and then we don't.
+Write it down as you go. Not a big document. A page. Enough that the next person
+doesn't have to reverse engineer it from the logs.
+
+That's it. Shout if something here is wrong.

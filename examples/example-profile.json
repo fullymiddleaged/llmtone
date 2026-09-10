@@ -1,0 +1,119 @@
+{
+  "version": "1.0",
+  "profile_id": "0459b4802fef4bf8",
+  "style": {
+    "formality": {
+      "value": 20,
+      "confidence": 0.69
+    },
+    "directness": {
+      "value": 59,
+      "confidence": 0.58
+    },
+    "warmth": {
+      "value": 39,
+      "confidence": 0.58
+    },
+    "conciseness": {
+      "value": 79,
+      "confidence": 0.56
+    },
+    "humour": {
+      "value": 19,
+      "confidence": 0.25
+    },
+    "hedging": {
+      "value": 33,
+      "confidence": 0.49
+    },
+    "technicality": {
+      "value": 38,
+      "confidence": 0.53
+    },
+    "conversationality": {
+      "value": 63,
+      "confidence": 0.74
+    }
+  },
+  "syntax": {
+    "average_sentence_length": 9.65,
+    "sentence_length_variance": 42.27,
+    "average_paragraph_length": 31.53,
+    "contraction_preference": 0.946,
+    "fragment_preference": 0.163,
+    "question_preference": 0.0,
+    "passive_preference": 0.0,
+    "vocabulary_diversity": 132.58
+  },
+  "punctuation": {
+    "semicolon": "never",
+    "em_dash": "never",
+    "en_dash": "never",
+    "colon": "occasional",
+    "parentheses": "never",
+    "exclamation": "never",
+    "ellipsis": "never",
+    "hyphen": "occasional",
+    "comma": "occasional",
+    "question": "never"
+  },
+  "vocabulary": {
+    "prefer": [
+      "definitely",
+      "rather"
+    ],
+    "avoid": [
+      "leverage",
+      "delve",
+      "robust",
+      "seamless",
+      "holistic",
+      "synergy",
+      "thus",
+      "hence",
+      "it is important to note",
+      "it should be noted",
+      "in conclusion",
+      "at the end of the day"
+    ],
+    "technical_terms": [
+      "logs",
+      "deployment",
+      "pipeline"
+    ],
+    "colloquialisms": [
+      "bin",
+      "fall over",
+      "falling over",
+      "fine"
+    ]
+  },
+  "phrasing": {
+    "preferred": [],
+    "avoided": []
+  },
+  "structure": {
+    "paragraph_length": "short",
+    "heading_preference": "low",
+    "bullet_preference": "medium"
+  },
+  "contexts": {},
+  "metadata": {
+    "sample_count": 6,
+    "word_count": 473,
+    "sentence_count": 49,
+    "created_at": "2026-09-10T07:45:31+00:00",
+    "updated_at": "2026-09-10T07:45:31+00:00",
+    "generator": "llmtone",
+    "scoring_version": "1.0"
+  },
+  "notes": {
+    "approximate_metrics": [
+      "passive_voice",
+      "fragments",
+      "subordinate_clauses"
+    ],
+    "avoid_inferred_from_absence": true,
+    "describes": "writing behaviour only, not personality"
+  }
+}
