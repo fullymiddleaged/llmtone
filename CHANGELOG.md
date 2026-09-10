@@ -26,7 +26,7 @@ yet, so everything below is still under Unreleased.
 - Contradiction detection in `llmtone profile` — when your samples disagree
   about a dimension by more than 30 points, it names the dimension and shows
   the range ("Formality 13-85 across samples") instead of reporting only the
-  average. That is context, not error; per-context profiles are still to come.
+  average. That is context, not error — label your samples and it splits them.
 - `notes.varies_by_context` in the profile: the same list, as
   `{dimension, low, high, scatter}`, for tools that want to weight those
   dimensions loosely. An empty array means the check found nothing.
