@@ -641,6 +641,58 @@ class TestModuleEntryPoint:
         assert "llmtone init" in result.stdout
 
 
+class TestPluginInvocation:
+    """How the Claude Code plugin runs llmtone: from its own directory.
+
+    The plugin ships this whole repository, and llmtone imports nothing but
+    the standard library, so pointing PYTHONPATH at the plugin root is enough
+    to run it. Nothing is installed, nothing is on the PATH, and in particular
+    no console-script executable is generated -- pip's generated `.exe` shim
+    is blocked outright on some Windows machines, so a plugin that depends on
+    it is a plugin that does not work.
+    """
+
+    ROOT = Path(__file__).parent.parent
+
+    def run_from_elsewhere(self, tmp_path, *args, pythonpath=None):
+        """Run the module from an unrelated directory, ignoring user site.
+
+        `-s` drops the user site-packages, so an editable install of llmtone
+        on the developer's own machine cannot be what satisfies the import.
+        """
+        env = dict(os.environ)
+        env.pop("PYTHONPATH", None)
+        if pythonpath is not None:
+            env["PYTHONPATH"] = str(pythonpath)
+        return subprocess.run(
+            [sys.executable, "-s", "-m", "llmtone", *args],
+            capture_output=True, text=True, cwd=tmp_path, env=env,
+        )
+
+    def test_the_plugin_root_on_pythonpath_is_enough_to_run_it(self, tmp_path):
+        result = self.run_from_elsewhere(tmp_path, "--version", pythonpath=self.ROOT)
+        assert result.returncode == EXIT_OK, result.stderr
+        assert "llmtone" in result.stdout
+
+    def test_without_it_the_import_fails_so_pythonpath_is_doing_the_work(
+        self, tmp_path
+    ):
+        """The negative half. Without this the test above proves nothing."""
+        result = self.run_from_elsewhere(tmp_path, "--version")
+        assert result.returncode != EXIT_OK
+        assert "No module named llmtone" in result.stderr
+
+    def test_it_renders_a_prompt_that_way_not_just_a_version_string(
+        self, tmp_path, home, answers_file
+    ):
+        init(home, answers_file)
+        result = self.run_from_elsewhere(
+            tmp_path, "--home", str(home), "prompt", pythonpath=self.ROOT
+        )
+        assert result.returncode == EXIT_OK, result.stderr
+        assert "Write in this person's voice" in result.stdout
+
+
 class TestUnbuiltCommands:
     def test_check_exits_distinctly_and_explains(self, home, capsys):
         assert run(["check", "some.txt"], home) == EXIT_NOT_YET

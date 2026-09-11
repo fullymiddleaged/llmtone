@@ -12,16 +12,20 @@ Fetch it and follow it, rather than guessing at their style.
 
 ## Get the instructions
 
-Run the first of these that works:
-
 ```bash
-llmtone prompt                                                        # installed
-python -m llmtone prompt                                              # a checkout, or pip install -e .
-uvx --from git+https://github.com/fullymiddleaged/llmtone llmtone prompt   # nothing installed
+PYTHONPATH="${CLAUDE_PLUGIN_ROOT}" python -m llmtone prompt
 ```
 
+This plugin ships llmtone itself, and llmtone imports nothing outside the
+standard library, so that runs whether or not the user has installed anything.
+If `python` is not found, try `python3` or `py`.
+
+Do not reach for a bare `llmtone` command. It only exists if they installed the
+package separately, and on Windows the executable pip generates for it is
+frequently blocked from running.
+
 If they named a context — work, friendly, marketing, code — add `--context NAME`.
-`llmtone profile` lists the contexts they have.
+`... -m llmtone profile` lists the contexts they have.
 
 Fetch it once per session and reuse it. It only changes when they add writing.
 
@@ -56,8 +60,9 @@ did. Answering it on their behalf would fabricate a voice out of your own
 prose and store it as theirs — which is the one thing this tool exists to
 prevent. It is interactive by design. Hand it back to them:
 
-> You don't have a voice profile yet. Run `llmtone init` in your terminal — five
-> questions and a writing sample per tone, about five minutes — then ask me again.
+> You don't have a voice profile yet. Run `llmtone init` in your terminal (or
+> `python -m llmtone init` from a checkout) — five questions and a writing
+> sample per tone, about five minutes — then ask me again.
 
 ## Making it permanent
 
@@ -65,8 +70,8 @@ If they want the voice available without a tool call, in this project or any
 agent that reads `AGENTS.md`:
 
 ```bash
-llmtone prompt --write            # splices a managed block into AGENTS.md
-llmtone prompt --write CLAUDE.md  # or into CLAUDE.md
+PYTHONPATH="${CLAUDE_PLUGIN_ROOT}" python -m llmtone prompt --write
+PYTHONPATH="${CLAUDE_PLUGIN_ROOT}" python -m llmtone prompt --write CLAUDE.md
 ```
 
 It replaces its own block on a rerun, so it is safe to run again after they add

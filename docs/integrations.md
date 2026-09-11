@@ -75,16 +75,23 @@ instead; a teammate does not want your prose habits applied to their commits.
 ```
 
 One skill, about 100 tokens of always-on cost. It fires when Claude is about to
-write prose on your behalf, runs `llmtone prompt`, and follows what comes back.
+write prose on your behalf, fetches your profile, and follows what comes back.
 Nothing is written to disk and no file needs to exist.
 
-It finds llmtone in whichever way you have it:
+**It does not need llmtone installed.** The plugin ships the package, and
+llmtone imports nothing outside the standard library, so the skill runs it
+straight out of the plugin directory:
 
 ```bash
-llmtone prompt                                                             # installed
-python -m llmtone prompt                                                   # a checkout
-uvx --from git+https://github.com/fullymiddleaged/llmtone llmtone prompt    # nothing installed
+PYTHONPATH="${CLAUDE_PLUGIN_ROOT}" python -m llmtone prompt
 ```
+
+That is deliberate. `pip install llmtone` does put an `llmtone` command on your
+PATH, and it is the right way to use llmtone from a terminal -- but on Windows
+that command is a generated `.exe` shim, and plenty of machines refuse to run
+newly created executables at all. A plugin that depended on it would fail on
+those machines for reasons the user cannot see. The module path has no such
+problem, so the plugin uses it and the terminal keeps the short command.
 
 If you have no profile the skill stops and tells you to run `llmtone init`
 yourself. It will not answer the onboarding questions for you. Those questions
@@ -98,10 +105,21 @@ To point it at a working copy instead of GitHub:
 /plugin marketplace add /path/to/your/llmtone
 ```
 
+Either way Claude Code takes a **copy** into its plugin cache; it does not read
+your working tree live. The cache is keyed by the version in `plugin.json`, so
+`/plugin marketplace update` alone will not refetch the same version. To pick
+up a change while developing, reinstall:
+
+```
+/plugin uninstall llmtone@llmtone
+/plugin install llmtone@llmtone
+```
+
 ## Still to come
 
-- **PyPI.** Once llmtone is published, `uvx llmtone prompt` works with nothing
-  installed and the fallback chain above collapses to one line.
+- **PyPI.** Once llmtone is published, `uvx llmtone` runs it from a terminal
+  with nothing installed. That is a convenience for people at a command line;
+  the plugin already needs no install and will not change.
 - **MCP server.** An optional `llmtone[mcp]` extra, for agents that take tools
   but do not read an instructions file. It would carry llmtone's first runtime
   dependency to deliver the same static text `--write` already delivers, so it
