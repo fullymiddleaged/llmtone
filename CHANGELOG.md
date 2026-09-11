@@ -18,8 +18,11 @@ yet, so everything below is still under Unreleased.
   a half-finished block is refused rather than guessed at.
 - A Claude Code plugin, installable with `/plugin marketplace add
   fullymiddleaged/llmtone`. It adds one skill that fetches your profile when
-  Claude writes prose for you, and tells you to run `llmtone init` yourself
-  when there is no profile rather than answering the questions on your behalf.
+  Claude writes prose for you, and sets up a missing profile with you in the
+  conversation rather than sending you to a terminal. Before it accepts any
+  sample it asks two things out loud: whether you wrote it yourself, and which
+  tone it is. Writing you admire but did not write is refused for the profile,
+  and the tone label is yours to pick rather than Claude's to guess.
 - [docs/integrations.md](docs/integrations.md) -- which file each tool reads,
   and how to keep the block current.
 - `python -m llmtone` runs the whole CLI without installing a console script,

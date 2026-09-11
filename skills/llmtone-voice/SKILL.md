@@ -55,24 +55,54 @@ Do not send them to a terminal. Set it up here:
 > Work email, messages, notes, posts. Two or three hundred words a tone is
 > plenty. **Don't tidy them up first**, that defeats the point.
 
-Then run it yourself with what they gave you:
+## Ask before you accept a sample
+
+Two questions, for every file or paste, before any `init` or `analyse` runs.
+Ask them out loud. Do not infer the answers and do not run the command until
+you have them.
+
+**1. "Did you write this yourself?"**
+
+Not "is this in your voice", not "does this sound like you" — who typed the
+words. People offer writing they admire as readily as writing they did, and
+an admired README reads exactly like a sample until you ask.
+
+If the answer is no — they admire it, a colleague wrote it, an agent helped
+with the repo it came from — it cannot go in the profile, and neither can
+part of it. Say that plainly, say why (a borrowed voice becomes their voice
+and there is no undoing it), and ask for something they wrote instead. There
+is nowhere to file it for later yet; do not invent one, and do not quietly
+route it to a scratch profile.
+
+**2. "Which tone is this — business, friendly, marketing, or code?"**
+
+Offer those four words and let them pick. The file's subject does not tell
+you: notes to a colleague are `:friendly` even when the topic is work, and a
+polished internal doc is `:business` even when nobody outside sees it. If they
+describe it rather than label it ("that's how I message people"), read the
+label back before you run anything.
+
+One mislabelled sample skews the context it lands in, and contexts feed the
+overall average.
+
+## Then build it
+
+Run it yourself with what they gave you, one `--sample` per file, each with the
+tone they picked:
 
 ```bash
-PYTHONPATH="${CLAUDE_PLUGIN_ROOT}" python -m llmtone init   --sample /path/they/gave.txt:business   --sample /another/one.md:friendly
+PYTHONPATH="${CLAUDE_PLUGIN_ROOT}" python -m llmtone init \
+  --sample /path/they/gave.txt:business \
+  --sample /another/one.md:friendly
 ```
 
-`:business`, `:friendly`, `:marketing`, `:code` label which tone each file is.
 Pasted text goes in a file first. This is non-interactive — it asks nothing.
 
-**The one rule: every word must be theirs.** Never write a sample yourself,
-never rewrite or tidy what they gave you, and never answer llmtone's onboarding
-questions on their behalf. A profile built from your prose and stored under
-their name is the one outcome this tool exists to prevent. If they have nothing
-to hand, say so and leave it — an empty profile beats a fabricated one.
-
-Writing from a repo built with an AI agent is not theirs either. If they offer
-a README or recent commit messages from an agent-assisted project, say why
-that will not work and ask for something else.
+**Never write a sample yourself.** Never rewrite or tidy what they gave you,
+and never answer llmtone's onboarding questions on their behalf. A profile
+built from your prose and stored under their name is the one outcome this tool
+exists to prevent. If they have nothing to hand, say so and leave it — an empty
+profile beats a fabricated one.
 
 To add more later: `... -m llmtone analyse FILE --save --context NAME`.
 
