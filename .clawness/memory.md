@@ -12,3 +12,4 @@
 - llmtone: storage.labelled_sample_texts() returns question answers too, not just samples; filter by label/kind.
 - Claude Code caches plugins by version; editing the source needs uninstall+install, not `plugin marketplace update`.
 - A Claude Code plugin shipping a stdlib-only Python pkg runs it via PYTHONPATH="${CLAUDE_PLUGIN_ROOT}" python -m PKG.
+- llmtone contexts hold YOUR voice per setting, never an admired style; a borrowed persona is a different feature.
