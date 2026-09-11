@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import subprocess
 import sys
 from pathlib import Path
 
@@ -529,6 +530,45 @@ class TestStartingAContextOnDemand:
         capsys.readouterr()
         assert run(["prompt", "--context", "marketing"], home) == EXIT_ERROR
         assert "Start one now?" not in capsys.readouterr().out
+
+
+class TestModuleEntryPoint:
+    """`python -m llmtone` -- the way an agent or MCP server runs it.
+
+    A console script is a generated executable on the PATH; these tests keep
+    the module path working so nothing has to be installed to drive llmtone.
+    """
+
+    ROOT = Path(__file__).parent.parent
+
+    def module(self, *args: str) -> subprocess.CompletedProcess:
+        return subprocess.run(
+            [sys.executable, "-m", "llmtone", *args],
+            capture_output=True, text=True, cwd=self.ROOT,
+        )
+
+    def test_the_module_runs_without_an_installed_script(self):
+        result = self.module("--version")
+        assert result.returncode == EXIT_OK
+        assert "llmtone" in result.stdout
+
+    def test_it_builds_a_profile_the_same_way_the_command_does(
+        self, home, answers_file
+    ):
+        result = self.module(
+            "--home", str(home),
+            "init",
+            "--answers", str(answers_file),
+            "--sample", f"{FIXTURES / 'formal_professional.txt'}:business",
+        )
+        assert result.returncode == EXIT_OK, result.stderr
+        data = json.loads((home / "profile.json").read_text(encoding="utf-8"))
+        assert "business" in data["contexts"]
+
+    def test_a_failure_is_a_non_zero_exit_for_whatever_called_it(self, home):
+        result = self.module("--home", str(home), "prompt")
+        assert result.returncode == EXIT_ERROR
+        assert "llmtone init" in result.stdout
 
 
 class TestUnbuiltCommands:

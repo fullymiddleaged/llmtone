@@ -64,6 +64,18 @@ cd llmtone
 pip install -e .
 ```
 
+That puts an `llmtone` command on your PATH. If you would rather not install
+anything -- or you are driving llmtone from an agent, an MCP server or a CI
+job, where a generated executable on the PATH is a nuisance -- run the module
+instead. It behaves identically and works straight out of a checkout:
+
+```bash
+python -m llmtone init
+python -m llmtone prompt --context business
+```
+
+Every `llmtone ...` below can be read as `python -m llmtone ...`.
+
 ## Use
 
 ```bash

@@ -10,6 +10,9 @@ yet, so everything below is still under Unreleased.
 
 ### Added
 
+- `python -m llmtone` runs the whole CLI without installing a console script,
+  for agents, MCP servers, CI jobs and plain checkouts. Identical behaviour and
+  exit codes to the `llmtone` command.
 - `llmtone init` — five questions and a writing sample per tone produce a
   portable `~/.llmtone/profile.json`. It asks for one paste each for business,
   friendly, marketing and code-comment writing, every one of them skippable, so
