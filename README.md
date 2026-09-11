@@ -59,9 +59,15 @@ describes writing behaviour, and says so in the output.
 Requires Python 3.10+.
 
 ```bash
-git clone https://github.com/llmtone/llmtone
+git clone https://github.com/fullymiddleaged/llmtone
 cd llmtone
 pip install -e .
+```
+
+Or straight from GitHub, without a checkout:
+
+```bash
+pip install git+https://github.com/fullymiddleaged/llmtone
 ```
 
 That puts an `llmtone` command on your PATH. If you would rather not install

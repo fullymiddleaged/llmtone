@@ -25,8 +25,8 @@ classifiers = [
 dependencies = []
 
 [project.urls]
-Homepage = "https://github.com/llmtone/llmtone"
-Schema = "https://github.com/llmtone/llmtone/blob/main/voice-profile.schema.json"
+Homepage = "https://github.com/fullymiddleaged/llmtone"
+Schema = "https://github.com/fullymiddleaged/llmtone/blob/main/voice-profile.schema.json"
 
 [project.scripts]
 llmtone = "llmtone.cli:main"
