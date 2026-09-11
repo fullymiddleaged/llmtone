@@ -4,8 +4,8 @@
 
 llmtone is an open-source, local-first personal writing profile for AI.
 
-It analyses how you actually write, asks a small number of questions to resolve
-what it can't tell from your writing alone, and builds a portable profile you can
+It analyses how you actually write. It asks a small number of questions to
+settle what your writing alone cannot. The result is a portable profile you can
 use with Claude Code, Codex, Gemini, local models and anything else.
 
 Your voice stays yours.
@@ -26,29 +26,26 @@ Your voice stays yours.
 
 > **Status: Phase 2.** The analyser, scoring engine, profile format, CLI,
 > calibration, per-context profiles and the agent integrations work. Voice
-> checking, a PyPI release and an MCP server are next — see
+> checking, a PyPI release and an MCP server are next. See
 > [Roadmap](#roadmap).
 
 ---
 
 ## Why
 
-Every AI tool has its own idea of "style settings", none of them portable, and
-"write like me" is a prompt you rewrite from scratch in every new tool. Your
-writing voice is yours, but it ends up scattered across half a dozen products
-that each own a fragment of it.
+Every AI tool has its own idea of style settings, and none of them are
+portable. "Write like me" is a prompt you rewrite from scratch in every new
+tool. Your writing voice is yours, but it ends up scattered across half a dozen
+products that each own a fragment of it.
 
 llmtone makes it a file.
 
-- **Local-first.** Phase 1 has no network code at all. Not disabled — absent.
-- **No account, no database, no embeddings.** Plain JSON in `~/.llmtone/`.
-- **Deterministic.** The same writing produces the same profile, every time, on
-  every machine.
-- **Inspectable.** Every score comes from weighted rules you can read in one
-  file and change in one line.
-- **Model-independent.** The profile describes writing, not prompts. It does not
-  assume which model you use.
-- **Zero dependencies.** Python and nothing else.
+Phase 1 has no network code at all. Not disabled, absent. There is no account,
+no database and no embeddings, just plain JSON in `~/.llmtone/`. The same
+writing produces the same profile every time, on every machine. Every score
+comes from weighted rules you can read in one file and change in one line. The
+profile describes writing rather than prompts, so it does not assume which
+model you use. It needs Python and nothing else.
 
 It is not an AI humanizer, not an AI detector, and not a personality model. It
 describes writing behaviour, and says so in the output.
@@ -71,9 +68,9 @@ Or straight from GitHub, without a checkout:
 pip install git+https://github.com/fullymiddleaged/llmtone
 ```
 
-That puts an `llmtone` command on your PATH. If you would rather not install
-anything -- or you are driving llmtone from an agent, an MCP server or a CI
-job, where a generated executable on the PATH is a nuisance -- run the module
+That puts an `llmtone` command on your PATH. You may prefer to install nothing
+at all. You may also be driving llmtone from an agent, an MCP server or a CI
+job, where a generated executable on the PATH is a nuisance. Run the module
 instead. It behaves identically and works straight out of a checkout:
 
 ```bash
@@ -89,23 +86,23 @@ Every `llmtone ...` below can be read as `python -m llmtone ...`.
 llmtone init
 ```
 
-Five questions — about your job, something you're into, a disagreement, a recent
-annoyance, something you're good at. None of them ask you to describe your
-writing style, because nobody is a reliable witness to their own prose.
+Five questions come first. They ask about your job, something you are into, a
+disagreement, a recent annoyance and something you are good at. None of them
+ask you to describe your writing style, because nobody is a reliable witness to
+their own prose.
 
-Then it asks for something you've actually written, once per tone: work,
-friendly, marketing, code comments. Skip any you don't write in. **Don't
-rewrite them first.**
+Then it asks for something you have actually written, once per tone. The tones
+are work, friendly, marketing and code comments. Skip any you do not write in.
+**Do not rewrite them first.**
 
 Each paste ends at a line with a single `.` on it, so multi-paragraph writing
-survives intact. About 200 words a tone -- two or three emails -- before that
-tone gets a profile of its own; anything shorter still counts towards your
-overall voice, and llmtone says how far short it was rather than dropping it
-silently.
+survives intact. About 200 words a tone, two or three emails, earns that tone a
+profile of its own. Anything shorter still counts towards your overall voice,
+and llmtone says how far short it was rather than dropping it silently.
 
 A tone you skipped is simply not there. llmtone reports writing it has seen and
-nothing else, so `llmtone prompt --context marketing` with no marketing samples
-does not invent one -- it offers to start that context from a paste, there and
+nothing else. So `llmtone prompt --context marketing` with no marketing samples
+does not invent one. It offers to start that context from a paste, there and
 then.
 
 ```
@@ -136,9 +133,9 @@ Not yet confident about: humour. More writing, or the calibration questions,
 will settle these.
 ```
 
-Six samples and 473 words is not much, and the profile says so: most dimensions
-are marked low-confidence, and humour is flagged as not established at all. Feed
-it more writing and the confidences climb.
+Six samples and 473 words is not much, and the profile says so. Most dimensions
+are marked low-confidence, and humour is flagged as not established at all.
+Feed it more writing and the confidences climb.
 
 Feed it writing from two different worlds and it says that instead:
 
@@ -173,9 +170,9 @@ $ llmtone profile
   Write for one of these with: llmtone prompt --context NAME
 ```
 
-Contexts usually come out *more* confident than the overall profile: samples
-that contradict each other pooled agree once they are split by where you wrote
-them. Labels are yours to choose — llmtone will not guess them.
+Contexts usually come out more confident than the overall profile. Samples that
+contradict each other when pooled agree once they are split by where you wrote
+them. Labels are yours to choose, and llmtone will not guess them.
 
 Then hand your voice to any model:
 
@@ -212,7 +209,7 @@ Constraints:
 ```
 
 Note that humour is missing from those instructions. It scored 19, but at 0.25
-confidence llmtone won't assert it — a dimension below 0.45 is left out
+confidence llmtone will not assert it. A dimension below 0.45 is left out
 entirely rather than passed to a model as if it were known.
 
 Reproduce exactly this with:
@@ -222,7 +219,7 @@ llmtone init --answers examples/answers.json \
              --sample tests/fixtures/casual_direct.txt
 ```
 
-`--sample` repeats, and a `:CONTEXT` suffix labels the file -- so a whole set of
+`--sample` repeats, and a `:CONTEXT` suffix labels the file. A whole set of
 tones can be onboarded in one non-interactive command:
 
 ```bash
@@ -265,7 +262,7 @@ Build with make.
 
 Run it again after `llmtone calibrate` and it **replaces** that block. Anything
 outside the markers is yours and is never touched. That is the whole reason for
-the flag: `llmtone prompt >> AGENTS.md` leaves last month's profile sitting
+the flag. `llmtone prompt >> AGENTS.md` leaves last month's profile sitting
 above this month's, and a file holding two of them describes neither.
 
 For Claude Code there is also a plugin, so the voice is available without a
@@ -278,7 +275,7 @@ file at all:
 
 It adds one skill that fetches your profile when Claude writes prose for you.
 If you have no profile it tells you to run `llmtone init` yourself rather than
-answering the questions on your behalf -- an agent inventing your voice is the
+answering the questions on your behalf. An agent inventing your voice is the
 one thing this tool exists to prevent.
 
 More in [docs/integrations.md](docs/integrations.md).
@@ -287,7 +284,7 @@ More in [docs/integrations.md](docs/integrations.md).
 
 | Command | |
 |---|---|
-| `llmtone init` | Five questions, then one writing sample per tone (business, friendly, marketing, code). `--sample FILE:CONTEXT` repeats for a non-interactive run. |
+| `llmtone init` | Five questions, then one writing sample per tone: business, friendly, marketing, code. `--sample FILE:CONTEXT` repeats for a non-interactive run. |
 | `llmtone analyse FILE` | Metrics for one file. `--json` for everything, `--save` to add it to your profile. |
 | `llmtone profile` | Your profile, as bars and prose. |
 | `llmtone prompt` | Model-independent writing instructions. `--write [FILE]` splices them into `AGENTS.md`, replacing what an earlier run put there. |
@@ -295,15 +292,15 @@ More in [docs/integrations.md](docs/integrations.md).
 | `llmtone calibrate` | More questions, chosen by whatever the profile is least sure of, plus a couple of A/B word choices. `-n` and `--pairs` set how many of each, `--dry-run` shows what it would ask. |
 | `llmtone check FILE` | Phase 3. |
 
-Add more writing at any time — the profile gets better as it sees more:
+Add more writing at any time. The profile gets better as it sees more:
 
 ```bash
 llmtone analyse --save ~/notes/some-real-email.txt
 ```
 
 Or let it ask. `llmtone calibrate` looks at which dimensions are least settled
-and picks questions aimed at those, so the second session is not a repeat of the
-first:
+and picks questions aimed at those, so the second session is not a repeat of
+the first:
 
 ```
 $ llmtone calibrate --dry-run
@@ -318,8 +315,8 @@ Would ask 3:
   ...
 ```
 
-Answers are analysed exactly like any other writing — the selection decides
-*which question you see*, never what the answer scores.
+Answers are analysed exactly like any other writing. The selection decides which
+question you see, never what the answer scores.
 
 It also offers a few straight choices:
 
@@ -332,8 +329,8 @@ Which of these would you actually write?
 
 That is what makes the `avoid` list worth anything. Without it, llmtone can only
 notice that you have never written "utilise" in 400 words and guess. One
-keystroke turns the guess into evidence, and the generated prompt says *never
-use* for the words you chose against and *probably avoid* for the rest.
+keystroke turns the guess into evidence. The generated prompt then says
+`never use` for the words you chose against, and `probably avoid` for the rest.
 
 ## Your data
 
@@ -347,7 +344,7 @@ use* for the words you chose against and *probably avoid* for the rest.
 Plain text. Read it, edit it, delete it, keep it in a private repo. Set
 `LLMTONE_HOME` to put it somewhere else.
 
-The evidence log is the source of truth; `profile.json` is derived from it and
+The evidence log is the source of truth. `profile.json` is derived from it and
 can be rebuilt at any time. That is what makes a future scoring improvement
 re-score everything you have already written, rather than asking you to answer
 the questions again.
@@ -356,8 +353,9 @@ Full detail in [docs/privacy.md](docs/privacy.md).
 
 ## How the scoring works
 
-Eight dimensions — formality, directness, warmth, conciseness, humour, hedging,
-technicality, conversationality — each a weighted sum of observable features:
+Eight dimensions, each a weighted sum of observable features. They are
+formality, directness, warmth, conciseness, humour, hedging, technicality and
+conversationality.
 
 ```python
 weights = {
@@ -378,21 +376,20 @@ and every word list in
 score, change a number, rerun.
 
 Each dimension also carries a confidence, and llmtone is deliberately honest
-about what it cannot know: **humour is capped at 0.55**, because counting
+about what it cannot know. **Humour is capped at 0.55**, because counting
 exclamation marks does not tell you whether someone is funny. Anything below
-0.45 is reported as "not yet established" and left out of the generated
+0.45 is reported as not yet established and left out of the generated
 instructions entirely.
 
-Three metrics — passive voice, sentence fragments, subordinate clauses — are
-heuristics standing in for a parser. They are flagged as approximate everywhere
-they appear, and [docs/metrics.md](docs/metrics.md) spells out exactly how each
-one is wrong.
+Three metrics stand in for a parser: passive voice, sentence fragments and
+subordinate clauses. They are flagged as approximate everywhere they appear,
+and [docs/metrics.md](docs/metrics.md) spells out exactly how each one is wrong.
 
-- [docs/scoring.md](docs/scoring.md) — how evidence becomes a score
-- [docs/metrics.md](docs/metrics.md) — every metric and its limits
-- [docs/schema.md](docs/schema.md) — the profile format
-- [docs/privacy.md](docs/privacy.md) — what is stored and what leaves
-- [docs/integrations.md](docs/integrations.md) — getting it into your tools
+- [docs/scoring.md](docs/scoring.md): how evidence becomes a score
+- [docs/metrics.md](docs/metrics.md): every metric and its limits
+- [docs/schema.md](docs/schema.md): the profile format
+- [docs/privacy.md](docs/privacy.md): what is stored and what leaves
+- [docs/integrations.md](docs/integrations.md): getting it into your tools
 
 ## The profile format
 
@@ -420,19 +417,19 @@ is documented in [docs/schema.md](docs/schema.md).
 
 ## Roadmap
 
-**Phase 1 — done.** Text analyser, profile schema, deterministic scoring, CLI,
+**Phase 1 is done.** Text analyser, profile schema, deterministic scoring, CLI,
 onboarding, writing-sample analysis, prompt renderer.
 
-**Phase 2 — done.** Adaptive question selection, the A/B word-choice library
-(`llmtone calibrate`), contradiction detection and per-context profiles.
+**Phase 2 is done.** Adaptive question selection, the A/B word-choice library
+behind `llmtone calibrate`, contradiction detection and per-context profiles.
 
-**Phase 3.** Integration: `llmtone prompt --write` and the Claude Code plugin
-are done. Still to come: `llmtone check` (a personal-style consistency checker
-— explicitly *not* an AI detector), learning from your edits, a PyPI release so
-`uvx llmtone` works with nothing installed, and an MCP server.
+**Phase 3.** Integration. `llmtone prompt --write` and the Claude Code plugin
+are done. Still to come is `llmtone check`, a personal-style consistency checker
+that is explicitly not an AI detector. Then learning from your edits, a PyPI
+release so `uvx llmtone` works with nothing installed, and an MCP server.
 
-**Phase 4.** Optional LLM providers for question wording only — never for
-scoring — and an optional local web UI.
+**Phase 4.** Optional LLM providers for question wording only, never for
+scoring, and an optional local web UI.
 
 The scoring engine is meant to improve. The profile format is versioned and
 independent of it, so better scoring will not mean a new format.
@@ -447,9 +444,9 @@ and both are one file each.
 pip install -e . && python -m pytest
 ```
 
-Tests assert *relative* outcomes — the formal fixture scores higher on formality
-than the casual one — rather than exact values, so retuning the weights doesn't
-mean rewriting the suite.
+Tests assert relative outcomes rather than exact values. The formal fixture
+scores higher on formality than the casual one. Retuning the weights therefore
+does not mean rewriting the suite.
 
 ## Licence
 
