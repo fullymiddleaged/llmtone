@@ -13,3 +13,4 @@
 - Claude Code caches plugins by version; editing the source needs uninstall+install, not `plugin marketplace update`.
 - A Claude Code plugin shipping a stdlib-only Python pkg runs it via PYTHONPATH="${CLAUDE_PLUGIN_ROOT}" python -m PKG.
 - llmtone: a context feeds the overall average (one borrowed sample moved formality 18->57), so styles need separate storage.
+- cli.py `_start_context` paste offer is gated on sys.stdin.isatty(); a Bash-tool run keeps a tty, so it only LOOKS interactive.
