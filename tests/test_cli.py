@@ -3,13 +3,22 @@
 from __future__ import annotations
 
 import json
+import os
+import sys
 from pathlib import Path
 
 import pytest
 
 from llmtone.calibration import ONBOARDING_QUESTIONS
-from llmtone.cli import EXIT_ERROR, EXIT_NOT_YET, EXIT_OK, bar, main
-from llmtone.profile import Storage
+from llmtone.cli import (
+    EXIT_ERROR,
+    EXIT_NOT_YET,
+    EXIT_OK,
+    _split_sample_arg,
+    bar,
+    main,
+)
+from llmtone.profile import MIN_CONTEXT_WORDS, PRESET_CONTEXTS, Storage
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
@@ -61,6 +70,30 @@ def init(home: Path, answers_file: Path, sample: str = "casual_direct") -> int:
     )
 
 
+def feed(monkeypatch, lines: list[str]) -> None:
+    """Answer `input()` from a script, and claim to be a terminal.
+
+    Running out of lines raises EOFError, which is what a real terminal does
+    on ctrl-D -- so a test that under-feeds ends the prompt instead of hanging.
+    """
+    supply = iter(lines)
+
+    def _input() -> str:
+        try:
+            return next(supply)
+        except StopIteration:
+            raise EOFError
+
+    monkeypatch.setattr("builtins.input", _input)
+    monkeypatch.setattr(sys.stdin, "isatty", lambda: True)
+
+
+def paste(name: str) -> list[str]:
+    """A fixture as pasted lines, terminated the way the prompt asks."""
+    text = (FIXTURES / f"{name}.txt").read_text(encoding="utf-8")
+    return text.splitlines() + ["."]
+
+
 class TestBar:
     def test_bar_is_full_at_100_and_empty_at_0(self):
         assert bar(100) == "█" * 10
@@ -82,7 +115,7 @@ class TestInit:
 
         output = capsys.readouterr().out
         assert "Your Voice Profile" in output
-        assert "Don't rewrite it first" in output
+        assert "Don't rewrite anything first" in output
 
     def test_profile_validates_against_the_schema(self, home, answers_file):
         init(home, answers_file)
@@ -322,6 +355,180 @@ class TestContexts:
         assert "No profile for context 'holiday'" in output
         assert "Known contexts: work" in output
         assert "--save --context holiday" in output
+
+
+class TestSampleArguments:
+    """`--sample FILE[:CONTEXT]`, including on Windows."""
+
+    def test_a_bare_path_has_no_context(self):
+        assert _split_sample_arg("emails.txt") == (Path("emails.txt"), None)
+
+    def test_a_suffix_labels_the_sample(self):
+        assert _split_sample_arg("emails.txt:business") == (
+            Path("emails.txt"), "business",
+        )
+
+    def test_a_drive_letter_is_not_a_context(self):
+        value = os.sep.join(["C:", "writing", "work.txt"])
+        assert _split_sample_arg(value) == (Path(value), None)
+
+    def test_a_full_path_can_still_be_labelled(self):
+        value = os.sep.join(["C:", "writing", "work.txt"])
+        assert _split_sample_arg(value + ":business") == (Path(value), "business")
+
+
+class TestOnboardingTones:
+    """init collects one sample per tone, so contexts exist from the start."""
+
+    def init_tones(self, home: Path, answers_file: Path, pairs) -> int:
+        args = ["init", "--answers", str(answers_file)]
+        for style, context in pairs:
+            args += ["--sample", f"{FIXTURES / f'{style}.txt'}:{context}"]
+        return run(args, home)
+
+    def test_labelled_samples_become_contexts(self, home, answers_file):
+        assert self.init_tones(
+            home, answers_file,
+            [("formal_professional", "business"), ("warm_conversational", "friendly")],
+        ) == EXIT_OK
+        data = json.loads((home / "profile.json").read_text(encoding="utf-8"))
+        assert sorted(data["contexts"]) == ["business", "friendly"]
+        assert data["contexts"]["business"]["style"]["formality"]["value"] > (
+            data["contexts"]["friendly"]["style"]["formality"]["value"]
+        )
+
+    def test_the_labels_ride_on_the_evidence(self, home, answers_file):
+        self.init_tones(
+            home, answers_file,
+            [("formal_professional", "business"), ("casual_direct", "Friendly")],
+        )
+        samples = [
+            record for record in Storage.open(home).evidence()
+            if record.kind == "writing_sample"
+        ]
+        assert [record.meta["context"] for record in samples] == ["business", "friendly"]
+
+    def test_an_unlabelled_sample_still_works(self, home, answers_file, capsys):
+        assert init(home, answers_file) == EXIT_OK
+        data = json.loads((home / "profile.json").read_text(encoding="utf-8"))
+        assert data["contexts"] == {}
+
+    def test_a_missing_file_stops_before_anything_is_recorded(
+        self, home, answers_file, capsys
+    ):
+        assert run(
+            ["init", "--answers", str(answers_file), "--sample", "nope.txt:business"],
+            home,
+        ) == EXIT_ERROR
+        assert "No such file" in capsys.readouterr().out
+        assert not Storage.open(home).profile_exists()
+        assert Storage.open(home).evidence() == []
+
+    def test_a_short_sample_is_kept_and_says_what_is_missing(
+        self, home, answers_file, tmp_path, capsys
+    ):
+        short = tmp_path / "note.txt"
+        short.write_text("Quick note about the release. " * 8, encoding="utf-8")
+        assert run(
+            ["init", "--answers", str(answers_file), "--sample", f"{short}:business"],
+            home,
+        ) == EXIT_OK
+        output = capsys.readouterr().out
+        assert "more before 'business' gets its own profile" in output
+        data = json.loads((home / "profile.json").read_text(encoding="utf-8"))
+        assert data["contexts"] == {}
+        samples = [
+            record for record in Storage.open(home).evidence()
+            if record.kind == "writing_sample"
+        ]
+        assert [record.meta["context"] for record in samples] == ["business"]
+
+
+class TestPastedTones:
+    """The interactive path: one paste per preset, each of them skippable."""
+
+    def test_every_preset_is_offered(self, home, answers_file, monkeypatch, capsys):
+        feed(monkeypatch, ["."] * len(PRESET_CONTEXTS))
+        assert run(["init", "--answers", str(answers_file)], home) == EXIT_OK
+        output = capsys.readouterr().out
+        assert output.count("skipped") == len(PRESET_CONTEXTS)
+        assert output.count("Paste it below") == len(PRESET_CONTEXTS)
+        for wording in ("Work writing", "Friendly writing", "Marketing writing",
+                        "Code comments"):
+            assert wording in output
+
+    def test_pasted_tones_become_contexts(self, home, answers_file, monkeypatch):
+        feed(monkeypatch, paste("formal_professional") + paste("casual_direct")
+             + ["."] + ["."])
+        assert run(["init", "--answers", str(answers_file)], home) == EXIT_OK
+        data = json.loads((home / "profile.json").read_text(encoding="utf-8"))
+        assert sorted(data["contexts"]) == ["business", "friendly"]
+
+    def test_a_blank_line_does_not_end_a_paste(self, home, answers_file, monkeypatch):
+        feed(monkeypatch, ["First paragraph.", "", "Second paragraph.", "."])
+        run(["init", "--answers", str(answers_file)], home)
+        pasted = [
+            text for text, label in Storage.open(home).labelled_sample_texts()
+            if label == "business"
+        ]
+        assert pasted == ["First paragraph.\n\nSecond paragraph."]
+
+    def test_skipping_everything_still_keeps_the_answers(
+        self, home, answers_file, monkeypatch, capsys
+    ):
+        feed(monkeypatch, ["."] * len(PRESET_CONTEXTS))
+        assert run(["init", "--answers", str(answers_file)], home) == EXIT_OK
+        assert Storage.open(home).profile_exists()
+
+
+class TestStartingAContextOnDemand:
+    """A context nobody has written for offers to collect one there and then."""
+
+    def test_a_paste_starts_the_context_and_prints_its_instructions(
+        self, home, answers_file, monkeypatch, capsys
+    ):
+        init(home, answers_file)
+        capsys.readouterr()
+        feed(monkeypatch, paste("formal_professional"))
+        assert run(["prompt", "--context", "marketing"], home) == EXIT_OK
+        output = capsys.readouterr().out
+        assert "No profile for context 'marketing'" in output
+        assert "How you write in: marketing" in output
+
+        data = json.loads((home / "profile.json").read_text(encoding="utf-8"))
+        assert "marketing" in data["contexts"]
+
+    def test_skipping_the_offer_leaves_the_profile_alone(
+        self, home, answers_file, monkeypatch, capsys
+    ):
+        init(home, answers_file)
+        before = (home / "profile.json").read_text(encoding="utf-8")
+        capsys.readouterr()
+        feed(monkeypatch, ["."])
+        assert run(["prompt", "--context", "marketing"], home) == EXIT_ERROR
+        assert "--save --context marketing" in capsys.readouterr().out
+        assert (home / "profile.json").read_text(encoding="utf-8") == before
+
+    def test_too_little_writing_says_so_rather_than_inventing_a_context(
+        self, home, answers_file, monkeypatch, capsys
+    ):
+        init(home, answers_file)
+        capsys.readouterr()
+        feed(monkeypatch, ["Buy our thing. It is good.", "."])
+        assert run(["prompt", "--context", "marketing"], home) == EXIT_ERROR
+        output = capsys.readouterr().out
+        assert "not enough 'marketing' writing" in output
+        data = json.loads((home / "profile.json").read_text(encoding="utf-8"))
+        assert "marketing" not in data["contexts"]
+
+    def test_it_stays_quiet_when_nobody_is_at_the_terminal(
+        self, home, answers_file, capsys
+    ):
+        """Piped output must keep failing rather than waiting for a paste."""
+        init(home, answers_file)
+        capsys.readouterr()
+        assert run(["prompt", "--context", "marketing"], home) == EXIT_ERROR
+        assert "Start one now?" not in capsys.readouterr().out
 
 
 class TestUnbuiltCommands:

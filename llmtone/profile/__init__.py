@@ -3,6 +3,7 @@
 from .model import (
     MIN_CONTEXT_WORDS,
     PARAGRAPH_BANDS,
+    PRESET_CONTEXTS,
     SCHEMA_VERSION,
     DimensionScore,
     VoiceProfile,
@@ -25,6 +26,7 @@ __all__ = [
     "SCHEMA_VERSION",
     "PARAGRAPH_BANDS",
     "MIN_CONTEXT_WORDS",
+    "PRESET_CONTEXTS",
     "normalise_context",
     "Storage",
     "default_home",

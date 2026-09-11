@@ -74,8 +74,20 @@ Five questions — about your job, something you're into, a disagreement, a rece
 annoyance, something you're good at. None of them ask you to describe your
 writing style, because nobody is a reliable witness to their own prose.
 
-Then it asks for something you've actually written. An email, a Slack message,
-some docs. **Don't rewrite it first.**
+Then it asks for something you've actually written, once per tone: work,
+friendly, marketing, code comments. Skip any you don't write in. **Don't
+rewrite them first.**
+
+Each paste ends at a line with a single `.` on it, so multi-paragraph writing
+survives intact. About 200 words a tone -- two or three emails -- before that
+tone gets a profile of its own; anything shorter still counts towards your
+overall voice, and llmtone says how far short it was rather than dropping it
+silently.
+
+A tone you skipped is simply not there. llmtone reports writing it has seen and
+nothing else, so `llmtone prompt --context marketing` with no marketing samples
+does not invent one -- it offers to start that context from a paste, there and
+then.
 
 ```
 $ llmtone profile
@@ -191,6 +203,15 @@ llmtone init --answers examples/answers.json \
              --sample tests/fixtures/casual_direct.txt
 ```
 
+`--sample` repeats, and a `:CONTEXT` suffix labels the file -- so a whole set of
+tones can be onboarded in one non-interactive command:
+
+```bash
+llmtone init --sample emails.txt:business \
+             --sample chat.txt:friendly \
+             --sample launch-post.md:marketing
+```
+
 Pipe it wherever you like:
 
 ```bash
@@ -203,7 +224,7 @@ llmtone export -o voice-profile.json
 
 | Command | |
 |---|---|
-| `llmtone init` | Five questions, then a real writing sample. |
+| `llmtone init` | Five questions, then one writing sample per tone (business, friendly, marketing, code). `--sample FILE:CONTEXT` repeats for a non-interactive run. |
 | `llmtone analyse FILE` | Metrics for one file. `--json` for everything, `--save` to add it to your profile. |
 | `llmtone profile` | Your profile, as bars and prose. |
 | `llmtone prompt` | Model-independent writing instructions. |

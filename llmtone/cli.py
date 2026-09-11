@@ -1,6 +1,6 @@
 """The llmtone command line.
 
-    llmtone init          five questions, then a real writing sample
+    llmtone init          five questions, then a writing sample per tone
     llmtone analyse FILE  metrics for one file (--save --context work)
     llmtone profile       your profile, as bars and prose
     llmtone prompt        model-independent writing instructions (--context)
@@ -41,6 +41,8 @@ from .calibration.selection import DEFAULT_ROUND, dimension_priority
 from .evidence import utc_now
 from .profile import (
     CONFIDENCE_THRESHOLD,
+    MIN_CONTEXT_WORDS,
+    PRESET_CONTEXTS,
     Storage,
     normalise_context,
     build_profile,
@@ -192,6 +194,150 @@ def _prompt_multiline(out: Out, label: str) -> str:
     return "\n".join(lines).strip()
 
 
+#: Ends a pasted writing sample. A blank line cannot: real writing has
+#: paragraphs in it, and a paste that stopped at the first one would never
+#: reach the words a context needs.
+PASTE_END = "."
+
+
+def _prompt_paste(out: Out, label: str) -> str:
+    """Read a writing sample, ending at a line holding a single full stop."""
+    out.say(out.dim(label))
+    lines: list[str] = []
+    while True:
+        try:
+            line = input()
+        except (EOFError, OSError):
+            break
+        if line.strip() == PASTE_END:
+            break
+        lines.append(line)
+    return "\n".join(lines).strip()
+
+
+#: How each preset tone is asked for. An unknown label falls back to the
+#: generic ask, so a context nobody anticipated can still onboard itself.
+_CONTEXT_HINTS = {
+    "business": "Work writing -- an email to a colleague or a client, a status "
+                "update, a ticket.",
+    "friendly": "Friendly writing -- a message to a friend, a chat thread, "
+                "something social.",
+    "marketing": "Marketing writing -- a launch post, a product page, an "
+                 "announcement.",
+    "code": "Code comments -- docstrings, a pull request description, a code "
+            "review.",
+}
+
+_PASTE_LABEL = (
+    "  Paste it below, then a line with a single . to finish. "
+    "Just . on its own skips this one."
+)
+
+
+def _context_hint(name: str) -> str:
+    return _CONTEXT_HINTS.get(name, f"Something you wrote in the {name!r} setting.")
+
+
+def _add_context_hint(name: str) -> str:
+    return f"  Build one with: llmtone analyse FILE --save --context {name}"
+
+
+def _split_sample_arg(value: str) -> tuple[Path, str | None]:
+    """Split ``--sample FILE:CONTEXT``, leaving a Windows drive letter alone.
+
+    ``C:\\writing\\work.txt`` is a path, not a file called ``C`` in a context
+    called ``\\writing\\work.txt``, so a separator in the tail means there was
+    no label.
+    """
+    head, separator, tail = value.rpartition(":")
+    if not separator or not head or not tail:
+        return Path(value), None
+    if any(mark in tail for mark in ("/", os.sep)):
+        return Path(value), None
+    return Path(head), tail
+
+
+def _context_words(storage: Storage, context: str) -> int:
+    """Words stored against one context, across every sample so far."""
+    return sum(
+        len(text.split())
+        for text, label in storage.labelled_sample_texts()
+        if label == context
+    )
+
+
+def _store_sample(
+    storage: Storage,
+    out: Out,
+    text: str,
+    *,
+    source: str,
+    context: str | None,
+    seq: int,
+) -> None:
+    """Record one sample and say whether its context has enough writing yet.
+
+    Below ``MIN_CONTEXT_WORDS`` a context is stored but does not appear in the
+    profile. Saying nothing would make a paste look like it vanished, so the
+    shortfall is always named.
+    """
+    record_sample(storage, text, source=source, seq=seq, context=context)
+    words = len(text.split())
+    if context is None:
+        out.say(out.dim(f"  noted ({words} words)"))
+        return
+    name = normalise_context(context)
+    total = _context_words(storage, name)
+    if total >= MIN_CONTEXT_WORDS:
+        out.say(out.dim(f"  noted ({words} words) -- enough for a {name!r} profile"))
+        return
+    out.say(out.dim(
+        f"  noted ({words} words) -- {MIN_CONTEXT_WORDS - total} more before "
+        f"{name!r} gets its own profile"
+    ))
+    out.say(out.dim(f"  add to it later: llmtone analyse FILE --save --context {name}"))
+
+
+def _record_sample_files(
+    storage: Storage,
+    out: Out,
+    samples: list[tuple[Path, str | None]],
+    seq: int,
+) -> int:
+    """Record every ``--sample`` given on the command line."""
+    recorded = 0
+    for path, context in samples:
+        text = path.read_text(encoding="utf-8")
+        if not text.strip():
+            out.say(out.dim(f"  {path} is empty -- skipped"))
+            continue
+        label = f" as {normalise_context(context)}" if context else ""
+        out.say(out.dim(f"  read {len(text.split())} words from {path}{label}"))
+        _store_sample(
+            storage, out, text, source=str(path), context=context, seq=seq + recorded
+        )
+        recorded += 1
+    return recorded
+
+
+def _collect_preset_samples(storage: Storage, out: Out, seq: int) -> int:
+    """Ask for one paste per preset tone. Every one of them is skippable."""
+    recorded = 0
+    for name in PRESET_CONTEXTS:
+        out.say(out.cyan(_context_hint(name)))
+        text = _prompt_paste(out, _PASTE_LABEL)
+        if not text.strip():
+            out.say(out.dim("  skipped"))
+            out.say()
+            continue
+        _store_sample(
+            storage, out, text, source="pasted", context=name, seq=seq + recorded
+        )
+        recorded += 1
+        out.say()
+    return recorded
+
+
 def cmd_init(args: argparse.Namespace, out: Out) -> int:
     storage = Storage.open(args.home)
 
@@ -205,9 +351,15 @@ def cmd_init(args: argparse.Namespace, out: Out) -> int:
 
     scripted = _read_answers_file(Path(args.answers)) if args.answers else None
 
+    samples = [_split_sample_arg(value) for value in (args.sample or [])]
+    missing = [str(path) for path, _ in samples if not path.exists()]
+    if missing:
+        out.say("No such file: " + ", ".join(missing))
+        return EXIT_ERROR
+
     out.say(out.bold("llmtone init"))
     out.say(
-        "Five questions, then something you've actually written.\n"
+        "Five questions, then a few things you've actually written.\n"
         "Everything stays on this machine -- llmtone has no network code at "
         "all in this version.\n"
     )
@@ -234,26 +386,27 @@ def cmd_init(args: argparse.Namespace, out: Out) -> int:
         answered += 1
         out.say()
 
-    out.say(out.bold("Now something you've actually written."))
+    out.say(out.bold("Now things you've actually written -- one per tone."))
     out.say(
-        "An email, a Slack message, some documentation, a forum post -- "
-        "anything real.\n"
-        + out.yellow("Don't rewrite it first. We want to see how you actually write.")
+        "Skip any tone you don't write in: llmtone only reports writing it has "
+        "seen, so a tone with no samples gets no profile.\n"
+        + out.yellow("Don't rewrite anything first. We want to see how you actually write.")
+        + "\n"
+        + out.dim(
+            f"  About {MIN_CONTEXT_WORDS} words a tone -- two or three emails, a "
+            "handful of messages -- before that tone gets its own profile. "
+            "Anything shorter still counts towards your overall voice."
+        )
         + "\n"
     )
 
-    if args.sample:
-        sample_path = Path(args.sample)
-        text = sample_path.read_text(encoding="utf-8")
-        out.say(out.dim(f"  read {len(text.split())} words from {sample_path}"))
-    else:
-        text = _prompt_multiline(
-            out, "  Paste it below, then a blank line. Or press Enter to skip."
-        )
+    recorded = (
+        _record_sample_files(storage, out, samples, seq)
+        if samples
+        else _collect_preset_samples(storage, out, seq)
+    )
 
-    if text.strip():
-        record_sample(storage, text, source=args.sample or "pasted", seq=seq)
-    elif answered == 0:
+    if not recorded and answered == 0:
         out.say("Nothing to analyse. Run `llmtone init` again when you have a moment.")
         return EXIT_ERROR
 
@@ -302,14 +455,15 @@ def cmd_analyse(args: argparse.Namespace, out: Out) -> int:
 
     if args.save:
         storage = Storage.open(args.home)
-        record_sample(
+        out.say()
+        _store_sample(
             storage,
+            out,
             text,
             source=str(path),
-            seq=len(storage.evidence()),
             context=args.context,
+            seq=len(storage.evidence()),
         )
-        out.say()
         _rebuild(storage, out)
     return EXIT_OK
 
@@ -444,6 +598,45 @@ def cmd_profile(args: argparse.Namespace, out: Out) -> int:
     return EXIT_OK
 
 
+def _start_context(args: argparse.Namespace, out: Out, name: str, known):
+    """Report a context that has no writing behind it, then offer to start it.
+
+    Asking for a paste here is how a person ends up with a collection of
+    profiles: they meet a missing context at the moment they wanted it, rather
+    than having to plan their tones out during onboarding. Returns the rebuilt
+    profile, or ``None`` if the context still does not exist.
+    """
+    listed = ", ".join(sorted(known)) or "none yet"
+    out.say(f"No profile for context {name!r}. Known contexts: {listed}.")
+    hint = out.dim(_add_context_hint(name))
+    if not sys.stdin.isatty():
+        out.say(hint)
+        return None
+
+    out.say()
+    out.say(out.bold("Start one now?"))
+    out.say(out.cyan(_context_hint(name)))
+    text = _prompt_paste(out, _PASTE_LABEL)
+    if not text.strip():
+        out.say(hint)
+        return None
+
+    storage = Storage.open(args.home)
+    _store_sample(
+        storage, out, text, source="pasted", context=name,
+        seq=len(storage.evidence()),
+    )
+    out.say()
+    _rebuild(storage, out)
+    profile = storage.load_profile()
+    if profile is None or name not in profile.contexts:
+        out.say()
+        out.say(f"Saved -- but that is not enough {name!r} writing for its own profile yet.")
+        return None
+    out.say()
+    return profile
+
+
 def cmd_prompt(args: argparse.Namespace, out: Out) -> int:
     profile = _require_profile(args, out)
     if profile is None:
@@ -452,15 +645,9 @@ def cmd_prompt(args: argparse.Namespace, out: Out) -> int:
     if wanted:
         name = normalise_context(wanted)
         if name not in profile.contexts:
-            known = ", ".join(sorted(profile.contexts)) or "none yet"
-            out.say(f"No profile for context {name!r}. Known contexts: {known}.")
-            out.say(
-                out.dim(
-                    "  Build one with: llmtone analyse FILE --save --context "
-                    f"{name}"
-                )
-            )
-            return EXIT_ERROR
+            profile = _start_context(args, out, name, profile.contexts)
+            if profile is None:
+                return EXIT_ERROR
         profile = profile.for_context(name)
         out.say(out.dim(f"# How you write in: {name}"))
     out.say(render_instructions(profile))
@@ -726,7 +913,14 @@ def build_parser() -> argparse.ArgumentParser:
     init = subparsers.add_parser("init", help="Build a profile from scratch.")
     init.add_argument("--force", action="store_true", help="Overwrite an existing profile.")
     init.add_argument("--answers", help="JSON file of question id -> answer (non-interactive).")
-    init.add_argument("--sample", help="File containing a real writing sample.")
+    init.add_argument(
+        "--sample",
+        action="append",
+        metavar="FILE[:CONTEXT]",
+        help="File containing a real writing sample. Repeatable, and a "
+             ":CONTEXT suffix labels it -- e.g. --sample emails.txt:business "
+             f"--sample launch.md:marketing. Presets: {', '.join(PRESET_CONTEXTS)}.",
+    )
     init.set_defaults(func=cmd_init)
 
     analyse_cmd = subparsers.add_parser("analyse", aliases=["analyze"], help="Analyse one file.")

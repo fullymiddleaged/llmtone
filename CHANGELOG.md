@@ -10,8 +10,22 @@ yet, so everything below is still under Unreleased.
 
 ### Added
 
-- `llmtone init` — five questions and one real writing sample produce a
-  portable `~/.llmtone/profile.json`.
+- `llmtone init` — five questions and a writing sample per tone produce a
+  portable `~/.llmtone/profile.json`. It asks for one paste each for business,
+  friendly, marketing and code-comment writing, every one of them skippable, so
+  a profile has contexts in it from the first run instead of needing them added
+  by hand afterwards. `--sample` now repeats and takes a `FILE:CONTEXT` suffix
+  (`--sample emails.txt:business`) for a non-interactive run.
+- A pasted sample now ends at a line holding a single `.` rather than at the
+  first blank line, so writing with paragraphs in it no longer gets cut short
+  at the first one.
+- A sample too short for its context is kept and says what it is short by,
+  rather than disappearing into the overall profile without comment.
+- `llmtone prompt --context NAME` for a context you have no writing for now
+  offers to start it from a paste there and then, instead of only telling you
+  the context does not exist. It stays an error when nobody is at the terminal,
+  and a paste too short to establish the context says so rather than inventing
+  one: llmtone still reports only tones it has actually seen you write.
 - `llmtone calibrate` — asks about whatever your profile is least sure of
   rather than a fixed list, so a second session is not a repeat of the first.
   `-n` sets how many questions, `--dry-run` shows what it would ask and why,

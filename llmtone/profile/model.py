@@ -19,6 +19,7 @@ from ..scoring import DIMENSIONS, DimensionResult, contradictions, score_all
 __all__ = [
     "VoiceProfile",
     "MIN_CONTEXT_WORDS",
+    "PRESET_CONTEXTS",
     "normalise_context",
     "DimensionScore",
     "WordVerdict",
@@ -50,6 +51,13 @@ PARAGRAPH_SEPARATOR = "\n\n"
 #: Below it every dimension would score under the 0.45 threshold anyway, so the
 #: entry would be a heading with nothing under it.
 MIN_CONTEXT_WORDS = 200
+
+#: The tones onboarding offers by default, in the order it asks for them.
+#: They are only a starting set -- any label works -- but naming them means a
+#: person ends up with several contexts without having to invent the idea of a
+#: context first. Nothing here creates a context on its own: a context exists
+#: when there is writing labelled with it, and not before.
+PRESET_CONTEXTS = ("business", "friendly", "marketing", "code")
 
 
 def normalise_context(label: str) -> str:
