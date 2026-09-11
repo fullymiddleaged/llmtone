@@ -46,23 +46,35 @@ inventing a trait.
 
 ## When there is no profile
 
-The command exits 1 and says:
+The command exits 1 with `No profile at ... Run `llmtone init` first.`
 
+Do not send them to a terminal. Set it up here:
+
+> I don't have a voice profile for you yet. Point me at a few things you
+> actually wrote — paths to files, or just paste them — and I'll build one.
+> Work email, messages, notes, posts. Two or three hundred words a tone is
+> plenty. **Don't tidy them up first**, that defeats the point.
+
+Then run it yourself with what they gave you:
+
+```bash
+PYTHONPATH="${CLAUDE_PLUGIN_ROOT}" python -m llmtone init   --sample /path/they/gave.txt:business   --sample /another/one.md:friendly
 ```
-No profile at ~/.llmtone/profile.json. Run `llmtone init` first.
-```
 
-**Stop and tell them to run `llmtone init` in their own terminal.** Do not run
-it yourself.
+`:business`, `:friendly`, `:marketing`, `:code` label which tone each file is.
+Pasted text goes in a file first. This is non-interactive — it asks nothing.
 
-`init` asks five questions about their life and asks them to paste writing they
-did. Answering it on their behalf would fabricate a voice out of your own
-prose and store it as theirs — which is the one thing this tool exists to
-prevent. It is interactive by design. Hand it back to them:
+**The one rule: every word must be theirs.** Never write a sample yourself,
+never rewrite or tidy what they gave you, and never answer llmtone's onboarding
+questions on their behalf. A profile built from your prose and stored under
+their name is the one outcome this tool exists to prevent. If they have nothing
+to hand, say so and leave it — an empty profile beats a fabricated one.
 
-> You don't have a voice profile yet. Run `llmtone init` in your terminal (or
-> `python -m llmtone init` from a checkout) — five questions and a writing
-> sample per tone, about five minutes — then ask me again.
+Writing from a repo built with an AI agent is not theirs either. If they offer
+a README or recent commit messages from an agent-assisted project, say why
+that will not work and ask for something else.
+
+To add more later: `... -m llmtone analyse FILE --save --context NAME`.
 
 ## Making it permanent
 
