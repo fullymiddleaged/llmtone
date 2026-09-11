@@ -39,6 +39,13 @@ from .calibration.pairs import SKIP
 from .calibration.questions import MIN_ANSWER_WORDS
 from .calibration.selection import DEFAULT_ROUND, dimension_priority
 from .evidence import utc_now
+from .integrate import (
+    DEFAULT_TARGET,
+    BlockError,
+    refresh_command,
+    render_block,
+    write_block,
+)
 from .profile import (
     CONFIDENCE_THRESHOLD,
     MIN_CONTEXT_WORDS,
@@ -642,6 +649,7 @@ def cmd_prompt(args: argparse.Namespace, out: Out) -> int:
     if profile is None:
         return EXIT_ERROR
     wanted = getattr(args, "context", None)
+    name = None
     if wanted:
         name = normalise_context(wanted)
         if name not in profile.contexts:
@@ -649,8 +657,28 @@ def cmd_prompt(args: argparse.Namespace, out: Out) -> int:
             if profile is None:
                 return EXIT_ERROR
         profile = profile.for_context(name)
+    instructions = render_instructions(profile)
+
+    target = getattr(args, "write", None)
+    if target:
+        block = render_block(instructions, context=name, target=target)
+        try:
+            action = write_block(Path(target), block)
+        except BlockError as exc:
+            out.say(f"Left {target} alone: {exc}")
+            return EXIT_ERROR
+        said = {
+            "created": "created it",
+            "appended": "added the llmtone block",
+            "replaced": "replaced the llmtone block",
+        }[action]
+        out.say(f"Wrote {target} -- {said}.")
+        out.say(out.dim(f"Rerun {refresh_command(target, name)} after more writing."))
+        return EXIT_OK
+
+    if wanted:
         out.say(out.dim(f"# How you write in: {name}"))
-    out.say(render_instructions(profile))
+    out.say(instructions)
     return EXIT_OK
 
 
@@ -943,6 +971,16 @@ def build_parser() -> argparse.ArgumentParser:
         "--context",
         metavar="LABEL",
         help="Instructions for how you write in one context.",
+    )
+    prompt_cmd.add_argument(
+        "--write",
+        nargs="?",
+        const=DEFAULT_TARGET,
+        metavar="FILE",
+        help=(
+            f"Splice the instructions into {DEFAULT_TARGET} (or FILE), "
+            "replacing what an earlier run put there."
+        ),
     )
     prompt_cmd.set_defaults(func=cmd_prompt)
 

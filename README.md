@@ -24,9 +24,10 @@ Your voice stays yours.
      Claude        Codex       Gemini     local model
 ```
 
-> **Status: Phase 1.** The analyser, scoring engine, profile format, CLI and
-> prompt renderer work. Adaptive calibration, voice checking and the MCP server
-> are next — see [Roadmap](#roadmap).
+> **Status: Phase 2.** The analyser, scoring engine, profile format, CLI,
+> calibration, per-context profiles and the agent integrations work. Voice
+> checking, a PyPI release and an MCP server are next — see
+> [Roadmap](#roadmap).
 
 ---
 
@@ -233,10 +234,54 @@ llmtone init --sample emails.txt:business \
 Pipe it wherever you like:
 
 ```bash
-llmtone prompt >> CLAUDE.md
 llmtone prompt | pbcopy
 llmtone export -o voice-profile.json
 ```
+
+## Use it with your agent
+
+Most coding agents read a markdown file for standing instructions. Put your
+voice in it:
+
+```bash
+llmtone prompt --write
+```
+
+That splices a marked block into `AGENTS.md`, which is read natively by Codex,
+Cursor, Copilot, Gemini CLI, Aider, Zed and Claude Code. `--write CLAUDE.md`
+puts it in CLAUDE.md instead, and `--context work` writes the voice for one
+context.
+
+```markdown
+# My project
+
+Build with make.
+
+<!-- llmtone:start -->
+## Writing voice
+...
+<!-- llmtone:end -->
+```
+
+Run it again after `llmtone calibrate` and it **replaces** that block. Anything
+outside the markers is yours and is never touched. That is the whole reason for
+the flag: `llmtone prompt >> AGENTS.md` leaves last month's profile sitting
+above this month's, and a file holding two of them describes neither.
+
+For Claude Code there is also a plugin, so the voice is available without a
+file at all:
+
+```
+/plugin marketplace add fullymiddleaged/llmtone
+/plugin install llmtone@llmtone
+```
+
+It adds one skill that fetches your profile when Claude writes prose for you.
+If you have no profile it tells you to run `llmtone init` yourself rather than
+answering the questions on your behalf -- an agent inventing your voice is the
+one thing this tool exists to prevent.
+
+More in [docs/integrations.md](docs/integrations.md).
 
 ## Commands
 
@@ -245,7 +290,7 @@ llmtone export -o voice-profile.json
 | `llmtone init` | Five questions, then one writing sample per tone (business, friendly, marketing, code). `--sample FILE:CONTEXT` repeats for a non-interactive run. |
 | `llmtone analyse FILE` | Metrics for one file. `--json` for everything, `--save` to add it to your profile. |
 | `llmtone profile` | Your profile, as bars and prose. |
-| `llmtone prompt` | Model-independent writing instructions. |
+| `llmtone prompt` | Model-independent writing instructions. `--write [FILE]` splices them into `AGENTS.md`, replacing what an earlier run put there. |
 | `llmtone export` | The profile as JSON. |
 | `llmtone calibrate` | More questions, chosen by whatever the profile is least sure of, plus a couple of A/B word choices. `-n` and `--pairs` set how many of each, `--dry-run` shows what it would ask. |
 | `llmtone check FILE` | Phase 3. |
@@ -347,6 +392,7 @@ one is wrong.
 - [docs/metrics.md](docs/metrics.md) — every metric and its limits
 - [docs/schema.md](docs/schema.md) — the profile format
 - [docs/privacy.md](docs/privacy.md) — what is stored and what leaves
+- [docs/integrations.md](docs/integrations.md) — getting it into your tools
 
 ## The profile format
 
@@ -380,8 +426,10 @@ onboarding, writing-sample analysis, prompt renderer.
 **Phase 2 — done.** Adaptive question selection, the A/B word-choice library
 (`llmtone calibrate`), contradiction detection and per-context profiles.
 
-**Phase 3.** `llmtone check` (a personal-style consistency checker — explicitly
-*not* an AI detector), learning from your edits, MCP server, integration docs.
+**Phase 3.** Integration: `llmtone prompt --write` and the Claude Code plugin
+are done. Still to come: `llmtone check` (a personal-style consistency checker
+— explicitly *not* an AI detector), learning from your edits, a PyPI release so
+`uvx llmtone` works with nothing installed, and an MCP server.
 
 **Phase 4.** Optional LLM providers for question wording only — never for
 scoring — and an optional local web UI.

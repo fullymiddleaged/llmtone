@@ -1,0 +1,19 @@
+{
+  "name": "llmtone",
+  "description": "One voice. Any AI. A local-first, portable writing-voice profile.",
+  "owner": {
+    "name": "Pete Salmond",
+    "url": "https://github.com/fullymiddleaged"
+  },
+  "plugins": [
+    {
+      "name": "llmtone",
+      "source": "./",
+      "description": "Write in the user's own voice, from a local profile built out of their actual writing.",
+      "homepage": "https://github.com/fullymiddleaged/llmtone",
+      "license": "MIT",
+      "category": "writing",
+      "keywords": ["writing", "style", "voice", "tone", "local-first"]
+    }
+  ]
+}

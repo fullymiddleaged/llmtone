@@ -1,0 +1,13 @@
+{
+  "name": "llmtone",
+  "displayName": "llmtone",
+  "version": "0.1.0",
+  "description": "Write in the user's own voice, from a local profile built out of their actual writing.",
+  "author": {
+    "name": "Pete Salmond"
+  },
+  "homepage": "https://github.com/fullymiddleaged/llmtone",
+  "repository": "https://github.com/fullymiddleaged/llmtone",
+  "license": "MIT",
+  "keywords": ["writing", "style", "voice", "tone", "local-first"]
+}

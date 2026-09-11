@@ -19,6 +19,7 @@ from llmtone.cli import (
     bar,
     main,
 )
+from llmtone.integrate import END, START
 from llmtone.profile import MIN_CONTEXT_WORDS, PRESET_CONTEXTS, Storage
 
 FIXTURES = Path(__file__).parent / "fixtures"
@@ -225,6 +226,75 @@ class TestProfileAndPrompt:
     def test_commands_needing_a_profile_say_so(self, home, capsys, command):
         assert run([command], home) == EXIT_ERROR
         assert "Run `llmtone init` first" in capsys.readouterr().out
+
+
+class TestPromptWrite:
+    """`--write` puts the block in a file and keeps it there on a rerun."""
+
+    def test_writes_a_block_into_the_named_file(self, home, answers_file, tmp_path, capsys):
+        init(home, answers_file)
+        target = tmp_path / "AGENTS.md"
+        assert run(["prompt", "--write", str(target)], home) == EXIT_OK
+        text = target.read_text(encoding="utf-8")
+        assert START in text and END in text
+        assert "Write in this person's voice" in text
+        assert "created it" in capsys.readouterr().out
+
+    def test_defaults_to_agents_md_in_the_working_directory(
+        self, home, answers_file, tmp_path, monkeypatch
+    ):
+        init(home, answers_file)
+        monkeypatch.chdir(tmp_path)
+        assert run(["prompt", "--write"], home) == EXIT_OK
+        assert (tmp_path / "AGENTS.md").exists()
+
+    def test_a_rerun_replaces_instead_of_appending(self, home, answers_file, tmp_path, capsys):
+        init(home, answers_file)
+        target = tmp_path / "AGENTS.md"
+        target.write_text("# Project\n\nBuild with make.\n", encoding="utf-8")
+        run(["prompt", "--write", str(target)], home)
+        once = target.read_text(encoding="utf-8")
+        capsys.readouterr()
+        assert run(["prompt", "--write", str(target)], home) == EXIT_OK
+        assert target.read_text(encoding="utf-8") == once
+        assert once.count(START) == 1
+        assert "Build with make." in once
+        assert "replaced the llmtone block" in capsys.readouterr().out
+
+    def test_writing_a_context_labels_the_block(self, home, answers_file, tmp_path):
+        init(home, answers_file)
+        run(["analyse", str(FIXTURES / "formal_professional.txt"),
+             "--save", "--context", "work"], home)
+        target = tmp_path / "AGENTS.md"
+        assert run(["prompt", "--context", "work", "--write", str(target)], home) == EXIT_OK
+        text = target.read_text(encoding="utf-8")
+        assert "## Writing voice (work)" in text
+        assert "--context work --write" in text
+
+    def test_nothing_is_written_without_a_profile(self, home, tmp_path, capsys):
+        target = tmp_path / "AGENTS.md"
+        assert run(["prompt", "--write", str(target)], home) == EXIT_ERROR
+        assert not target.exists()
+        assert "Run `llmtone init` first" in capsys.readouterr().out
+
+    def test_a_file_with_a_stranded_marker_is_left_exactly_as_it_was(
+        self, home, answers_file, tmp_path, capsys
+    ):
+        init(home, answers_file)
+        target = tmp_path / "AGENTS.md"
+        original = f"# Project\n{START}\nstranded\n"
+        target.write_text(original, encoding="utf-8")
+        capsys.readouterr()
+        assert run(["prompt", "--write", str(target)], home) == EXIT_ERROR
+        assert target.read_text(encoding="utf-8") == original
+        assert "Left" in capsys.readouterr().out
+
+    def test_without_write_it_still_goes_to_stdout(self, home, answers_file, tmp_path, capsys):
+        init(home, answers_file)
+        capsys.readouterr()
+        assert run(["prompt"], home) == EXIT_OK
+        assert "Write in this person's voice" in capsys.readouterr().out
+        assert not (tmp_path / "AGENTS.md").exists()
 
 
 class TestVariationReporting:

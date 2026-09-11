@@ -10,6 +10,18 @@ yet, so everything below is still under Unreleased.
 
 ### Added
 
+- `llmtone prompt --write` puts your voice into `AGENTS.md` -- the instructions
+  file Codex, Cursor, Copilot, Gemini CLI, Aider, Zed and Claude Code all read
+  -- or into any file you name. It splices a marked block, so running it again
+  after more writing replaces that block instead of appending a second copy
+  below the first. Anything outside the markers is left alone, and a file with
+  a half-finished block is refused rather than guessed at.
+- A Claude Code plugin, installable with `/plugin marketplace add
+  fullymiddleaged/llmtone`. It adds one skill that fetches your profile when
+  Claude writes prose for you, and tells you to run `llmtone init` yourself
+  when there is no profile rather than answering the questions on your behalf.
+- [docs/integrations.md](docs/integrations.md) -- which file each tool reads,
+  and how to keep the block current.
 - `python -m llmtone` runs the whole CLI without installing a console script,
   for agents, MCP servers, CI jobs and plain checkouts. Identical behaviour and
   exit codes to the `llmtone` command.
